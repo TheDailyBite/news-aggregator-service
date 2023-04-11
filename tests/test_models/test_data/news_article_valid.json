@@ -1,0 +1,31 @@
+{
+    "about": [
+        {
+            "name": "Google",
+            "readLink": "https://api.bing.microsoft.com/api/v7/entities/f39b29ec-05ee-d6cb-3070-ddaa0fb00ee0"
+        }
+    ],
+    "category": "ScienceAndTechnology",
+    "datePublished": "2023-04-07T14:40:00.0000000Z",
+    "description": "Goodson dives in as explores how Google responded to ChatGPT by using foundation models and generative AI to create innovative products and improve its existing offerings.",
+    "image": {
+        "thumbnail": {
+            "contentUrl": "https://www.bing.com/th?id=OVFT.ZQWA-UCPF7dXWH1PlbsxVy&pid=News",
+            "height": 208,
+            "width": 516
+        }
+    },
+    "name": "Google's Bold Move: How The Tech Giant Used Generative AI To Revise Its Product Roadmap And Do It Safely",
+    "provider": [
+        {
+            "_type": "Organization",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=ODF.U6nYa4Huf-RFEhjg-V4hNg&pid=news"
+                }
+            },
+            "name": "Forbes"
+        }
+    ],
+    "url": "https://www.forbes.com/sites/moorinsights/2023/04/07/googles-bold-move-how-the-tech-giant-used-generative-ai-to-revise-its-product-roadmap-and-do-it-safely/"
+}

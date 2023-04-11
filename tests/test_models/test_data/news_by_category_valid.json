@@ -1,0 +1,310 @@
+{
+    "_type": "News",
+    "readLink": "https://api.bing.microsoft.com/api/v7/news/search?q=Generative+AI",
+    "queryContext": {
+        "originalQuery": "Generative AI",
+        "adultIntent": false
+    },
+    "totalEstimatedMatches": 36,
+    "sort": [
+        {
+            "name": "Best match",
+            "id": "relevance",
+            "isSelected": true,
+            "url": "https://api.bing.microsoft.com/api/v7/news/search?q=Generative+AI"
+        },
+        {
+            "name": "Most recent",
+            "id": "date",
+            "isSelected": false,
+            "url": "https://api.bing.microsoft.com/api/v7/news/search?q=Generative+AI&sortby=date"
+        }
+    ],
+    "value": [
+        {
+            "name": "Google's Bold Move: How The Tech Giant Used Generative AI To Revise Its Product Roadmap And Do It Safely",
+            "url": "https://www.forbes.com/sites/moorinsights/2023/04/07/googles-bold-move-how-the-tech-giant-used-generative-ai-to-revise-its-product-roadmap-and-do-it-safely/",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=OVFT.ZQWA-UCPF7dXWH1PlbsxVy&pid=News",
+                    "width": 516,
+                    "height": 208
+                }
+            },
+            "description": "Goodson dives in as explores how Google responded to ChatGPT by using foundation models and generative AI to create innovative products and improve its existing offerings.",
+            "about": [
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/f39b29ec-05ee-d6cb-3070-ddaa0fb00ee0",
+                    "name": "Google"
+                }
+            ],
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "Forbes",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.U6nYa4Huf-RFEhjg-V4hNg&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T14:40:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "Generative AI Has an Intellectual Property Problem",
+            "url": "https://hbr.org/2023/04/generative-ai-has-an-intellectual-property-problem",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=OVFT.LjE7haqVcyHrStDR7kBW6i&pid=News",
+                    "width": 700,
+                    "height": 393
+                }
+            },
+            "description": "Generative AI, which uses data lakes and question snippets to recover patterns and relationships, is becoming more prevalent in creative industries. However, the legal implications of using generative AI are still unclear,",
+            "about": [
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/1fd2e5e6-93c5-e0ce-b523-27a18cd42b5d",
+                    "name": "Intellectual property"
+                }
+            ],
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "Harvard Business Review",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.vMG1cLNjZ-9WYrdm29wCWA&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T12:05:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "How generative AI can hurt cloud operations",
+            "url": "https://www.infoworld.com/article/3693008/how-generative-ai-can-hurt-cloud-operations.html",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=OVFT.Uc8UHyf9e4cDlKAcxrkv5y&pid=News",
+                    "width": 700,
+                    "height": 483
+                }
+            },
+            "description": "The hype around generative AI is white hot, and cloud operators are excited about the possibilities. First, let\\u2019s anticipate the unique problems it can cause.",
+            "about": [
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/98428fb5-66d6-ba46-c292-46f5a176a9eb",
+                    "name": "InfoWorld"
+                },
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/9cdd061c-1fae-d046-08ed-9ae1879b7aae",
+                    "name": "Cloud"
+                }
+            ],
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "InfoWorld",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.kNyBIJAcWhNTx4H2XcnC2g&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T10:01:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "More game developers openly use generative AI despite criticism",
+            "url": "https://venturebeat.com/games/more-game-developers-openly-use-generative-ai-despite-criticism/",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=OVFT.2PPhnbiZdNnK2jXYjTWf_y&pid=News",
+                    "width": 700,
+                    "height": 428
+                }
+            },
+            "description": "Generative AI is becoming one of game developers' most interesting new tools, though some still criticize its use.",
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "VentureBeat",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.qPCJA3Or4GGU4hhi1ZEpfg&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T06:33:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "OpenAI has become synonymous with the generative AI boom, but it has a weakness that its competitors are already starting to exploit",
+            "url": "https://news.yahoo.com/openai-become-synonymous-generative-ai-195150079.html",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=OVFT.JcnEmLz0D-lwIF5KmWLzmC&pid=News",
+                    "width": 700,
+                    "height": 525
+                }
+            },
+            "description": "OpenAI's ChatGPT made generative AI popular. But it's focus on being everything to everyone could be its downfall as competition heats up.",
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "YAHOO!News",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.nYADEgS75l8rdCg9D-p_OQ&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-06T19:51:00.0000000Z",
+            "video": {
+                "name": "OpenAI has become synonymous with the generative AI boom, but it has a weakness that its competitors are already starting to exploit",
+                "thumbnailUrl": "https://www.bing.com/th?id=OVF.cdlikhLrL8ogK%2BcLH5u%2FRQ&pid=News",
+                "thumbnail": {
+                    "width": 520,
+                    "height": 390
+                }
+            },
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "Glean launches new generative AI capabilities to enhance search and discovery across organizations",
+            "url": "https://venturebeat.com/ai/glean-launches-new-generative-ai-capabilities-to-enhance-search-and-discovery-across-organizations/",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=OVFT.WfW9acFENhaBumbDz3JZgi&pid=News",
+                    "width": 700,
+                    "height": 393
+                }
+            },
+            "description": "Glean announces a suite of new features using generative AI to synthesize and surface relevant information across an organization.",
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "VentureBeat",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.qPCJA3Or4GGU4hhi1ZEpfg&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T04:31:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "Putting AI to Work: Generative AI Meets the Enterprise",
+            "url": "https://www.cio.com/article/472562/putting-ai-to-work-generative-ai-meets-the-enterprise.html",
+            "image": {
+                "thumbnail": {
+                    "contentUrl": "https://www.bing.com/th?id=OVFT.C0lu3-aqFGTNZnCRKlsiSy&pid=News",
+                    "width": 700,
+                    "height": 466
+                }
+            },
+            "description": "For enterprises, generative AI holds massive potential, making CIOs the linchpin of customer experience. Powering GenAI\\u2019s potential requires purpose-built approaches to mitigate the inherent risks of its adoption.",
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "CIO",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.O-dAH6YYD82Tjj694XTydA&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T09:23:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "Generative AI Market worth $51.8 billion by 2028 - Exclusive Report by MarketsandMarkets\\u2122",
+            "url": "https://finance.yahoo.com/news/generative-ai-market-worth-51-090000305.html",
+            "description": "The Global Generative AI Market is projected to grow from USD 11.3 billion in 2023 to USD 51.8 billion by 2028, at a compound annual growth rate (CAGR) of 35.6% during the forecast period, according to a new report by MarketsandMarkets\\u2122.",
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "YAHOO!Finance",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.fJDJ4f2BFbmOkQx_rnDw3Q&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T09:00:00.0000000Z",
+            "category": "Business"
+        },
+        {
+            "name": "GoDaddy Launches Generative AI Prompt Library for Small Businesses",
+            "url": "https://finance.yahoo.com/news/godaddy-launches-generative-ai-prompt-172300015.html",
+            "description": "April 7, 2023 /PRNewswire/ -- GoDaddy Inc. (NYSE: GDDY), the company that helps entrepreneurs thrive, just released a Small Business Generative AI Prompt Library (smallbusinessprompts.com), a catalog of more than 35 prompts, and growing, ready-made for ...",
+            "about": [
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/d2810ad5-adda-0312-8d88-2fdf1e5f3b64",
+                    "name": "Library"
+                },
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/defcb36b-6c55-0c2b-c89e-a9fd90de5200",
+                    "name": "Go Daddy"
+                },
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/fa721054-524e-4381-1b5b-1a4ecfb71a5c",
+                    "name": "Small business"
+                }
+            ],
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "Yahoo Finance"
+                }
+            ],
+            "datePublished": "2023-04-07T17:26:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        },
+        {
+            "name": "Meta's Bet on Generative AI Is Really a Stepping Stone to the Metaverse",
+            "url": "https://www.msn.com/en-us/news/technology/metas-bet-on-generative-ai-is-really-a-stepping-stone-to-the-metaverse/ar-AA19AgLe",
+            "description": "Nasty bear markets that expose inefficient uses of financial resources tend to hasten pivots like this. But that doesn't mean Meta has given up on the metaverse. On the contrary, Meta's new AI is a stepping-stone approach to that same 3D future. Investors and tech enthusiasts alike should be happy with this shift.",
+            "about": [
+                {
+                    "readLink": "https://api.bing.microsoft.com/api/v7/entities/b09a01ed-cc2b-fdee-1e94-5f5a5d1c0a3c",
+                    "name": "The Motley Fool"
+                }
+            ],
+            "mentions": [
+                {
+                    "name": "The Motley Fool"
+                },
+                {
+                    "name": "Meta"
+                },
+                {
+                    "name": "Metaverse"
+                }
+            ],
+            "provider": [
+                {
+                    "_type": "Organization",
+                    "name": "The Motley Fool on MSN.com",
+                    "image": {
+                        "thumbnail": {
+                            "contentUrl": "https://www.bing.com/th?id=ODF.4QjIDUvHz3Rc67mtMVQu7A&pid=news"
+                        }
+                    }
+                }
+            ],
+            "datePublished": "2023-04-07T10:15:00.0000000Z",
+            "category": "ScienceAndTechnology"
+        }
+    ]
+}
