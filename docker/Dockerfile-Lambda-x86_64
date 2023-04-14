@@ -1,12 +1,11 @@
-FROM python:3.8-slim-buster
+FROM public.ecr.aws/lambda/python:3.8-x86_64
 
 ENV LANG=C.UTF-8 \
   LC_ALL=C.UTF-8 \
   PATH="${PATH}:/root/.poetry/bin"
 
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends \
-  curl openssh-client \
+RUN yum update -y && \
+  yum install -y curl openssh-server openssh-clients \
   && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -21,5 +20,7 @@ RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/inst
 
 RUN --mount=type=ssh poetry install --no-root --without dev
 
-CMD mkdir -p /workspace
-WORKDIR /workspace
+WORKDIR ${LAMBDA_TASK_ROOT}
+COPY . ${LAMBDA_TASK_ROOT}
+
+CMD [ "app.handler" ]

@@ -8,13 +8,13 @@ def test_bing_news_search_api_response_model():
         test_data = json.load(f)
         response = NewsAnswerAPIResponse(**test_data)
         assert response.total_estimated_matches == 36
-        assert response.sort[0].id == "relevance"
-        assert response.sort[0].is_selected == True
-        assert response.sort[1].id == "date"
-        assert response.sort[1].is_selected == False
+        assert response.sort[0].id == "relevance"  # type: ignore
+        assert response.sort[0].is_selected == True  # type: ignore
+        assert response.sort[1].id == "date"  # type: ignore
+        assert response.sort[1].is_selected == False  # type: ignore
         assert response.related_topics is None
         assert response.value is not None
-        assert response.query_context.original_query == "Generative AI"
+        assert response.query_context.original_query == "Generative AI"  # type: ignore
         assert len(response.value) == 10
 
 
