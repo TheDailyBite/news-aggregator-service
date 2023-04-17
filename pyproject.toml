@@ -34,7 +34,8 @@ classifiers = [  #! Update me
 python = "^3.8"
 pydantic = "^1.10.7"
 pyhumps = "^3.8.0"
-news_aggregator_data_access_layer = { git = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git", branch = "selfuserid" } # TODO - update to main
+requests = "^2.28.2"
+news_aggregator_data_access_layer = { git = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git", branch = "main" }
 
 
 [tool.poetry.dev-dependencies]
