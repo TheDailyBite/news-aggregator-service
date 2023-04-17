@@ -56,6 +56,23 @@ git remote add origin https://github.com/TheDailyBite/news-aggregator-service.gi
 git push -u origin main
 ```
 
+### Local Testing
+The entirety of the aggregation service can be tested local by using the docker-compose file found in the `docker/` sub-directory.
+
+Requirements:
+1. Docker Engine needs to be installed. This now typically include docker compose as well.
+2. Create a file called `secret-envs.env` within the `docker/` sub-directory. This needs to include all the required environment variables that are secret. This file is included in the `.gitignore` so it will not be pushed to git. For example this may include an api key that is used by the service `BING_NEWS_API_KEY="some_bing_news_api_key"`
+
+Running Service locally:
+1. Once the requirements are completed, navigate to the `docker/` sub-directory. From here run `docker compose up` to spin up the containers.
+2. You can open the s3 local ui by visiting `localhost:9001` (this requires you to login; you can find the credentials in the `docker-compose.yml` file but they are probably `accesskey` and `secretkey`) and the dynamodb ui at `localhost:8001`.
+3. If it is the first time runnign the s3 local ui or you cleared the data, you'll need to create the required s3 buckets. Do so in the UI. The buckets are currently: `news-aggregator-candidate-articles-dev` (there may be more since I may forget to update this README from time to time).
+4. Start a bash session in the `news_aggregator_service` container by executing `docker exec -it <container_id_of_container> bash`. To get the container id you simply can run `docker container ls`.
+5. Once in the container start `python`. Then run `exec(open("app.py").read())`. You can then use the `create_user_topic` function to create a few new test user topics that we can then aggregate news for. Supply a new one by looking at the schema used for `test_self_user_topic_event` or simply create the sample test topic by doing `create_user_topic(test_self_user_topic_event, None)`.
+6. Once you have all the user topics you wish to aggregate, you can run `aggregate_bing_news_self(None, None)`. This will aggregate the news for all the user topics in the database for the self user id.
+7. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-candidate-articles-dev` bucket.
+- NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
+
 ### Set up bots
 
 - Set up [Dependabot](https://docs.github.com/en/github/administering-a-repository/enabling-and-disabling-version-updates#enabling-github-dependabot-version-updates) to ensure you have the latest dependencies.

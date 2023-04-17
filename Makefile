@@ -4,8 +4,10 @@ PYTHON := python
 PYTHONPATH := `pwd`
 
 #* Docker variables
-IMAGE := news_aggregator_service
+IMAGE := news-aggregator-service
 VERSION := latest
+VERSION_LAMBDA_X86_64 := latest-lambda-x86_64
+VERSION_LAMBDA_ARM64 := latest-lambda-arm64
 
 #* Poetry
 .PHONY: poetry-download
@@ -74,6 +76,7 @@ update-dev-deps:
 docker-build:
 	@echo Building docker $(IMAGE):$(VERSION) ...
 	docker build \
+		--ssh default=${SSH_AUTH_SOCK} \
 		-t $(IMAGE):$(VERSION) . \
 		-f ./docker/Dockerfile --no-cache
 
@@ -83,6 +86,42 @@ docker-build:
 docker-remove:
 	@echo Removing docker $(IMAGE):$(VERSION) ...
 	docker rmi -f $(IMAGE):$(VERSION)
+
+#* Docker
+# Example: make docker-build-lambda-x86-64 VERSION=latest
+# Example: make docker-build-lambda-x86-64 IMAGE=some_name VERSION=0.1.0
+.PHONY: docker-build-lambda-x86-64
+docker-build-lambda-x86-64:
+	@echo Building docker $(IMAGE):$(VERSION_LAMBDA_X86_64) ...
+	docker build \
+		--ssh default=${SSH_AUTH_SOCK} \
+		-t $(IMAGE):$(VERSION_LAMBDA_X86_64) . \
+		-f ./docker/Dockerfile-Lambda-x86_64 --no-cache
+
+# Example: make docker-remove-lambda-x86-64 VERSION=latest
+# Example: make docker-remove-lambda-x86-64 IMAGE=some_name VERSION=0.1.0
+.PHONY: docker-remove-lambda-x86-64
+docker-remove-lambda-x86-64:
+	@echo Removing docker $(IMAGE):$(VERSION_LAMBDA_X86_64) ...
+	docker rmi -f $(IMAGE):$(VERSION_LAMBDA_X86_64)
+
+#* Docker
+# Example: make docker-build-lambda-arm64 VERSION=latest
+# Example: make docker-build-lambda-arm64 IMAGE=some_name VERSION=0.1.0
+.PHONY: docker-build-lambda-arm64
+docker-build-lambda-arm64:
+	@echo Building docker $(IMAGE):$(VERSION_LAMBDA_ARM64) ...
+	docker build \
+		--ssh default=${SSH_AUTH_SOCK} \
+		-t $(IMAGE):$(VERSION_LAMBDA_ARM64) . \
+		-f ./docker/Dockerfile-Lambda-lambda-arm64 --no-cache
+
+# Example: make docker-remove-lambda-arm64 VERSION=latest
+# Example: make docker-remove-lambda-arm64 IMAGE=some_name VERSION=0.1.0
+.PHONY: docker-remove-lambda-arm64
+docker-remove-lambda-arm64:
+	@echo Removing docker $(IMAGE):$(VERSION_LAMBDA_ARM64) ...
+	docker rmi -f $(IMAGE):$(VERSION_LAMBDA_ARM64)
 
 #* Cleaning
 .PHONY: pycache-remove
