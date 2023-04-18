@@ -20,9 +20,13 @@ test_self_user_topic_event = {
     "max_aggregator_results": 50,
 }
 
+from news_aggregator_service.utils.telemetry import setup_logger
+
+logger = setup_logger(__name__)
+
 
 def aggregate_bing_news_self(event, context):
-    print(f"Aggregating Bing News for self user {SELF_USER_ID}...")
+    logger.info(f"Aggregating Bing News for self user {SELF_USER_ID}...")
     try:
         trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
         user_topics = UserTopics.query(SELF_USER_ID)
@@ -38,19 +42,22 @@ def aggregate_bing_news_self(event, context):
                 results.extend([a_r.json() for a_r in aggregation_results])
         return {"statusCode": 200, "body": {"results": results}}
     except Exception as e:
-        print(f"Failed to aggregate Bing News for self user {SELF_USER_ID} with error: {e}")
+        logger.error(
+            f"Failed to aggregate Bing News for self user {SELF_USER_ID} with error: {e}",
+            exc_info=True,
+        )
         return {"statusCode": 500, "body": {"error": str(e)}}
 
 
 def create_user_topic(event, context):
     topic = event["topic"]
     topic = urllib.parse.quote_plus(topic)
-    print(f"Url encoded topic: {topic} from original input topic {event['topic']}")
+    logger.info(f"Url encoded topic: {topic} from original input topic {event['topic']}")
     categories = None
     if event["categories"]:
         categories = set(event["categories"])
     max_aggregator_results = event.get("max_aggregator_results")
-    print(
+    logger.info(
         f"Creating user topic for self user {SELF_USER_ID} with topic: {topic}, categories: {categories}, max aggregator results: {max_aggregator_results}..."
     )
     try:
@@ -68,7 +75,8 @@ def create_user_topic(event, context):
             },
         }
     except Exception as e:
-        print(
-            f"Failed to create user topic for self user {SELF_USER_ID} with topic: {topic}, categories: {categories}, max aggregator results: {max_aggregator_results} with error: {e}"
+        logger.error(
+            f"Failed to create user topic for self user {SELF_USER_ID} with topic: {topic}, categories: {categories}, max aggregator results: {max_aggregator_results} with error: {e}",
+            exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}

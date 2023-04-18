@@ -14,3 +14,6 @@ DEFAULT_MAX_BING_AGGREGATOR_RESULTS = int(
     os.environ.get("DEFAULT_MAX_BING_AGGREGATOR_RESULTS", 100)
 )
 REQUESTS_SLEEP_TIME_S = 1
+DEFAULT_LOGGER_NAME = "news_aggregator_service"
+LOCAL_TESTING = os.environ.get("LOCAL_TESTING", "false").lower() in ["true"]
+DEFAULT_NAMESPACE = os.environ.get("DEFAULT_NAMESPACE", "NewsAggregatorService")
