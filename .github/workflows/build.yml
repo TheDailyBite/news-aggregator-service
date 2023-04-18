@@ -103,5 +103,6 @@ jobs:
           ECR_REPOSITORY: ${{ vars.NEWS_AGGREGATOR_ECR_REPO }}
         run: |
           aws lambda update-function-code \
-          --function-name $LAMBDA_NAME \
-          --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+          --function-name $BING_AGGREGATOR_SELF_LAMBDA_NAME \
+          --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} \
+          --region ${{ env.AWS_REGION}}
