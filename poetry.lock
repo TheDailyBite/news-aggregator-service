@@ -817,7 +817,7 @@ pynamodb-attributes = "^0.4.0"
 type = "git"
 url = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git"
 reference = "main"
-resolved_reference = "213079a9e1e5c11a5475fed34060cc17da6861ab"
+resolved_reference = "bde1595867f2aac476aa40f3b9df3fd3e698a912"
 
 [[package]]
 name = "nodeenv"

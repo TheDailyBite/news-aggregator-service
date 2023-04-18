@@ -48,6 +48,10 @@ article_per_request = 100
 # Set headers for API request
 headers = bing_news.Headers(ocp_apim_subscription_key=subscription_key)  # type: ignore
 
+from news_aggregator_service.utils.telemetry import setup_logger
+
+logger = setup_logger(__name__)
+
 
 def generate_article_id(article_idx: int, category: Optional[str]) -> str:
     article_id = f"{article_idx}".zfill(10)
@@ -62,7 +66,7 @@ def aggregate_candidates_for_query(
     aggregator_run = AggregatorRuns(BING_AGGREGATOR_ID, aggregation_dt)
     aggregator_run.save()
     if max_aggregator_results <= 0:
-        print(
+        logger.info(
             f"No valid max aggregator results provided, using default value {DEFAULT_MAX_BING_AGGREGATOR_RESULTS}..."
         )
         max_aggregator_results = DEFAULT_MAX_BING_AGGREGATOR_RESULTS
@@ -72,17 +76,17 @@ def aggregate_candidates_for_query(
         sorting = DEFAULT_BING_SORTING
         freshness = DEFAULT_BING_FRESHNESS
         if not categories:
-            print("No categories provided, getting candidates with no specified category...")
+            logger.info("No categories provided, getting candidates with no specified category...")
             candidates_for_query = get_candidates_for_query(
                 query, freshness, "", sorting, max_aggregator_results
             )
-            print(f"Found {len(candidates_for_query)} candidates for query: {query}")
+            logger.info(f"Found {len(candidates_for_query)} candidates for query: {query}")
             query_candidates.extend(candidates_for_query)
         for category in categories:
             candidates_for_query = get_candidates_for_query(
                 query, freshness, category, sorting, max_aggregator_results
             )
-            print(
+            logger.info(
                 f"Found {len(candidates_for_query)} candidates for query: {query} and category: {category}"
             )
             query_candidates.extend(candidates_for_query)
@@ -110,8 +114,9 @@ def aggregate_candidates_for_query(
         aggregator_run.update(actions=update_actions)
         return aggregation_results, store_prefix
     except Exception as e:
-        print(
-            f"Error while aggregating Bing News for query: {query} and categories: {categories} and aggregation datetime {aggregation_dt}: {e}"
+        logger.error(
+            f"Error while aggregating Bing News for query: {query} and categories: {categories} and aggregation datetime {aggregation_dt}: {e}",
+            exc_info=True,
         )
         aggregator_run.update(actions=[AggregatorRuns.run_status.set(AggregatorRunStatus.FAILED)])
         raise
@@ -120,7 +125,7 @@ def aggregate_candidates_for_query(
 def store_candidates(
     query: str, candidates: List[NewsArticle], sorting: str, aggregation_dt: datetime
 ) -> Tuple[str, str]:
-    print(
+    logger.info(
         f"Storing {len(candidates)} candidates for query: {query} and sorting: {sorting} and aggregation datetime {aggregation_dt}..."
     )
     s3_client = boto3.client("s3", region_name=REGION_NAME, endpoint_url=S3_ENDPOINT_URL)
@@ -160,14 +165,16 @@ def get_candidates_for_query(
     offset = 0
     total_estimated_matches = 0
     page = 0
-    print(
+    logger.info(
         f"Retrieving a max of {max_aggregator_results} news articles results for search term: {query}, category: {category} and freshness: {freshness}..."
     )
     # currently we use the url only to check for duplicates
     unique_articles_db: Set[str] = set()
     while True:
         if len(candidates) >= max_aggregator_results:
-            print(f"Reached max aggregator results, returning {len(candidates)} candidates...")
+            logger.info(
+                f"Reached max aggregator results, returning {len(candidates)} candidates..."
+            )
             return candidates
         # Set query parameters for API request
         params = bing_news.QueryParams(
@@ -186,11 +193,11 @@ def get_candidates_for_query(
             params=params.dict(by_alias=True),
             timeout=5,
         )
-        print(f"Request sent URL: {response.request.url}...")
+        logger.info(f"Request sent URL: {response.request.url}...")
         if response.status_code == 200:
             news_answer_json = response.json()
             news_answer = bing_news.NewsAnswerAPIResponse.parse_obj(news_answer_json)
-            print(f"Query Context: {news_answer.query_context}")
+            logger.info(f"Query Context: {news_answer.query_context}")
             if not news_answer.value:
                 return candidates
             total_estimated_matches = news_answer.total_estimated_matches  # type: ignore
@@ -201,16 +208,17 @@ def get_candidates_for_query(
             needed_articles_count = max_aggregator_results - len(candidates)
             processed_articles = processed_articles[:needed_articles_count]
             candidates.extend(processed_articles)
-            print(
+            logger.info(
                 f"Retrieved {new_articles_count} new articles of which {processed_new_articles_count} are unique and relevant. Needed articles to reach max {needed_articles_count} Total articles retrieve in aggregation: {len(candidates)}; Page {page}; Offset: {offset}; Total estimated matches: {total_estimated_matches}"
             )
             page += 1
             offset += new_articles_count
-            print(f"Sleeping for {REQUESTS_SLEEP_TIME_S} seconds to avoid rate limiting...")
+            logger.info(f"Sleeping for {REQUESTS_SLEEP_TIME_S} seconds to avoid rate limiting...")
             time.sleep(REQUESTS_SLEEP_TIME_S)
         else:
-            print(
-                f"Error retrieving news articles: Status Codes: {response.status_code}; {response.text}"
+            logger.error(
+                f"Error retrieving news articles: Status Codes: {response.status_code}; {response.text}",
+                exc_info=True,
             )
             raise Exception(
                 f"Error retrieving news articles: Status Codes: {response.status_code}; {response.text}"
@@ -228,7 +236,7 @@ def process_articles(
         # as this may still return a child category which we don't want to filter out
         # see: https://learn.microsoft.com/en-us/bing/search-apis/bing-news-search/reference/query-parameters#news-categories-by-market
         if requested_category and article.category != requested_category:
-            print(
+            logger.info(
                 f"Article with url: {article.url} has category {article.category} which is different than the requested category {requested_category}, skipping..."
             )
             continue
@@ -240,7 +248,7 @@ def process_articles(
 def is_unique_article(article: NewsArticle, unique_articles_db: Set[str]) -> bool:
     # currently a unique article is defined by a unique url
     if article.url in unique_articles_db:
-        print(f"Article with url: {article.url} already exists, skipping...")
+        logger.info(f"Article with url: {article.url} already exists, skipping...")
         return False
     unique_articles_db.add(article.url)
     return True
