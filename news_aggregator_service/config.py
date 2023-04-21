@@ -9,7 +9,8 @@ DEFAULT_BING_SORTING = os.environ.get("DEFAULT_BING_SORTING", "Relevance")
 assert DEFAULT_BING_SORTING in ["Relevance", "Date"]
 DEFAULT_BING_FRESHNESS = os.environ.get("DEFAULT_BING_FRESHNESS", "Day")
 assert DEFAULT_BING_FRESHNESS in ["Day", "Week", "Month"]
-BING_AGGREGATOR_ID = "bing-news"
+# AGGREGATOR IDS ARE NAMED camelCase
+BING_AGGREGATOR_ID = "bingNews"
 DEFAULT_MAX_BING_AGGREGATOR_RESULTS = int(
     os.environ.get("DEFAULT_MAX_BING_AGGREGATOR_RESULTS", 100)
 )

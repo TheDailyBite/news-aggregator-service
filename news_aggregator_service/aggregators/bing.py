@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
 
 import json
 import os
@@ -53,8 +53,12 @@ from news_aggregator_service.utils.telemetry import setup_logger
 logger = setup_logger(__name__)
 
 
-def generate_article_id(article_idx: int, category: Optional[str]) -> str:
-    article_id = f"{article_idx}".zfill(10)
+def generate_article_id(
+    article_idx: int, aggregator_id: str, candidate_dt: datetime, category: Optional[str]
+) -> str:
+    candidate_dt_str = candidate_dt.strftime("%Y%m%d%H%M%S%f")
+    article_idx_str = f"{article_idx}".zfill(10)
+    article_id = f"{candidate_dt_str}_{article_idx_str}_{aggregator_id}"
     if category:
         article_id += f"_{category}"
     return article_id
@@ -71,17 +75,10 @@ def aggregate_candidates_for_query(
         )
         max_aggregator_results = DEFAULT_MAX_BING_AGGREGATOR_RESULTS
     try:
-        query_candidates: List[NewsArticle] = []
+        query_candidates: Dict[str, List[NewsArticle]] = {}
         aggregation_results = []
         sorting = DEFAULT_BING_SORTING
         freshness = DEFAULT_BING_FRESHNESS
-        if not categories:
-            logger.info("No categories provided, getting candidates with no specified category...")
-            candidates_for_query = get_candidates_for_query(
-                query, freshness, "", sorting, max_aggregator_results
-            )
-            logger.info(f"Found {len(candidates_for_query)} candidates for query: {query}")
-            query_candidates.extend(candidates_for_query)
         for category in categories:
             candidates_for_query = get_candidates_for_query(
                 query, freshness, category, sorting, max_aggregator_results
@@ -89,9 +86,9 @@ def aggregate_candidates_for_query(
             logger.info(
                 f"Found {len(candidates_for_query)} candidates for query: {query} and category: {category}"
             )
-            query_candidates.extend(candidates_for_query)
+            query_candidates[category] = candidates_for_query
             aggregation_results.append(
-                AggregationResults(  # type: ignore
+                AggregationResults(
                     articles_aggregated_count=len(candidates_for_query),
                     category=category,
                     query=query,
@@ -123,36 +120,48 @@ def aggregate_candidates_for_query(
 
 
 def store_candidates(
-    query: str, candidates: List[NewsArticle], sorting: str, aggregation_dt: datetime
+    query: str, candidates: Mapping[str, List[NewsArticle]], sorting: str, aggregation_dt: datetime
 ) -> Tuple[str, str]:
     logger.info(
-        f"Storing {len(candidates)} candidates for query: {query} and sorting: {sorting} and aggregation datetime {aggregation_dt}..."
+        f"Storing {sum([len(category_candidates) for category, category_candidates in candidates.items()])} total candidates across {len(candidates)} categories for query: {query} and sorting: {sorting} and aggregation datetime {aggregation_dt}..."
     )
     s3_client = boto3.client("s3", region_name=REGION_NAME, endpoint_url=S3_ENDPOINT_URL)
     candidate_articles = CandidateArticles(ResultRefTypes.S3, aggregation_dt)
     raw_articles = []
-    for article_idx in range(len(candidates)):
-        article = candidates[article_idx]
-        category = article.category
-        # currently article id is simply the index of the article in the list of candidates
-        # and the category, if any
-        article_id = generate_article_id(article_idx, category)
-        raw_article = RawArticle(
-            article_id=article_id,
-            aggregator_id=BING_AGGREGATOR_ID,
-            topic=query,
-            category=article.category,
-            title=article.name,
-            url=article.url,
-            article_data=article.json(),
-            sorting=sorting,
-        )
-        raw_articles.append(raw_article)
+    for category_for_candidates, category_candidates in candidates.items():
+        for article_idx in range(len(category_candidates)):
+            article = category_candidates[article_idx]
+            category = article.category
+            # if we have a category for the candidates, make sure it matches the category for the candidate article
+            if category_for_candidates:
+                if category != category_for_candidates:
+                    raise ValueError(
+                        f"Category for candidates: {category_for_candidates} does not match category for candidate article: {article}"
+                    )
+            # currently article id is simply the aggregation dt as a string, the index of the article in the list of category candidates,
+            # the aggregator id, and the requested category, if any, all separated by underscores
+            article_id = generate_article_id(
+                article_idx, BING_AGGREGATOR_ID, aggregation_dt, category_for_candidates
+            )
+            raw_article = RawArticle(
+                article_id=article_id,
+                aggregator_id=BING_AGGREGATOR_ID,
+                date_published=article.date_published,
+                aggregation_index=article_idx,
+                topic=query,
+                category=article.category,
+                title=article.name,
+                url=article.url,
+                article_data=article.json(),
+                sorting=sorting,
+            )
+            raw_articles.append(raw_article)
     kwargs = {
         "s3_client": s3_client,
         "topic": query,
         "aggregator_id": BING_AGGREGATOR_ID,
         "articles": raw_articles,
+        "aggregation_dt": aggregation_dt,
     }
     store_bucket, store_prefix = candidate_articles.store_articles(**kwargs)
     return store_bucket, store_prefix

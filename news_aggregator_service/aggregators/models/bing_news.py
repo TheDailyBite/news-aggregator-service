@@ -106,7 +106,7 @@ class SortValue(CamelModel):
 
 
 class NewsArticle(CamelModel):
-    category: Optional[str]
+    category: Optional[str] = ""
     clustered_articles: Optional[List["NewsArticle"]]
     date_published: Optional[
         str

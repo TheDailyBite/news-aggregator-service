@@ -14,10 +14,15 @@ from news_aggregator_service.aggregators import bing
 
 create_tables()
 
-test_self_user_topic_event = {
+test_self_user_topic_event_with_category = {
     "topic": "Generative AI",
     "categories": ["ScienceAndTechnology"],
-    "max_aggregator_results": 50,
+    "max_aggregator_results": 25,
+}
+test_self_user_topic_event_without_category = {
+    "topic": "Generative AI",
+    "categories": [""],
+    "max_aggregator_results": 25,
 }
 
 from news_aggregator_service.utils.telemetry import setup_logger
@@ -53,9 +58,7 @@ def create_user_topic(event, context):
     topic = event["topic"]
     topic = urllib.parse.quote_plus(topic)
     logger.info(f"Url encoded topic: {topic} from original input topic {event['topic']}")
-    categories = None
-    if event["categories"]:
-        categories = set(event["categories"])
+    categories = set(event["categories"])
     max_aggregator_results = event.get("max_aggregator_results")
     logger.info(
         f"Creating user topic for self user {SELF_USER_ID} with topic: {topic}, categories: {categories}, max aggregator results: {max_aggregator_results}..."

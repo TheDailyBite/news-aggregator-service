@@ -8,7 +8,7 @@ class AggregationResults(BaseModel):
     category: str
     query: str
     freshness: str
-    store_prefix: Optional[str]
+    store_prefix: Optional[str] = ""
     sorting: str
 
     class Config:
