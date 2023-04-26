@@ -9,7 +9,11 @@ import boto3
 import requests
 from news_aggregator_data_access_layer.assets.news_assets import CandidateArticles, RawArticle
 from news_aggregator_data_access_layer.config import S3_ENDPOINT_URL
-from news_aggregator_data_access_layer.constants import AggregatorRunStatus, ResultRefTypes
+from news_aggregator_data_access_layer.constants import (
+    ALL_CATEGORIES_STR,
+    AggregatorRunStatus,
+    ResultRefTypes,
+)
 from news_aggregator_data_access_layer.models.dynamodb import AggregatorRuns
 
 from news_aggregator_service.aggregators.models import bing_news
@@ -54,13 +58,13 @@ logger = setup_logger(__name__)
 
 
 def generate_article_id(
-    article_idx: int, aggregator_id: str, candidate_dt: datetime, category: Optional[str]
+    article_idx: int, aggregator_id: str, candidate_dt: datetime, requested_category: Optional[str]
 ) -> str:
     candidate_dt_str = candidate_dt.strftime("%Y%m%d%H%M%S%f")
     article_idx_str = f"{article_idx}".zfill(10)
     article_id = f"{candidate_dt_str}_{article_idx_str}_{aggregator_id}"
-    if category:
-        article_id += f"_{category}"
+    if requested_category:
+        article_id += f"_{requested_category}"
     return article_id
 
 
@@ -84,13 +88,13 @@ def aggregate_candidates_for_query(
                 query, freshness, category, sorting, max_aggregator_results
             )
             logger.info(
-                f"Found {len(candidates_for_query)} candidates for query: {query} and category: {category}"
+                f"Found {len(candidates_for_query)} candidates for query: {query} and requested category: {category}"
             )
             query_candidates[category] = candidates_for_query
             aggregation_results.append(
                 AggregationResults(
                     articles_aggregated_count=len(candidates_for_query),
-                    category=category,
+                    requested_category=category,
                     query=query,
                     freshness=freshness,
                     sorting=sorting,
@@ -132,8 +136,8 @@ def store_candidates(
         for article_idx in range(len(category_candidates)):
             article = category_candidates[article_idx]
             category = article.category
-            # if we have a category for the candidates, make sure it matches the category for the candidate article
-            if category_for_candidates:
+            # if we have a requested category for the candidates, make sure it matches the category for the candidate article
+            if category_for_candidates == ALL_CATEGORIES_STR:
                 if category != category_for_candidates:
                     raise ValueError(
                         f"Category for candidates: {category_for_candidates} does not match category for candidate article: {article}"
@@ -149,6 +153,7 @@ def store_candidates(
                 date_published=article.date_published,
                 aggregation_index=article_idx,
                 topic=query,
+                requested_category=category_for_candidates,
                 category=article.category,
                 title=article.name,
                 url=article.url,
@@ -175,7 +180,7 @@ def get_candidates_for_query(
     total_estimated_matches = 0
     page = 0
     logger.info(
-        f"Retrieving a max of {max_aggregator_results} news articles results for search term: {query}, category: {category} and freshness: {freshness}..."
+        f"Retrieving a max of {max_aggregator_results} news articles results for search term: {query}, requested category: {category} and freshness: {freshness}..."
     )
     # currently we use the url only to check for duplicates
     unique_articles_db: Set[str] = set()
@@ -193,7 +198,7 @@ def get_candidates_for_query(
             offset=offset,
             count=article_per_request,
         )
-        if category:
+        if category != ALL_CATEGORIES_STR:
             params.category = category
         # Send API request
         response = requests.get(

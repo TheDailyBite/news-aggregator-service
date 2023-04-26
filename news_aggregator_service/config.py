@@ -18,3 +18,4 @@ REQUESTS_SLEEP_TIME_S = 1
 DEFAULT_LOGGER_NAME = "news_aggregator_service"
 LOCAL_TESTING = os.environ.get("LOCAL_TESTING", "false").lower() in ["true"]
 DEFAULT_NAMESPACE = os.environ.get("DEFAULT_NAMESPACE", "NewsAggregatorService")
+SOURCING_DEFAULT_TOP_K = int(os.environ.get("SOURCING_DEFAULT_TOP_K", 5))

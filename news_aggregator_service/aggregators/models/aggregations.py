@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class AggregationResults(BaseModel):
     articles_aggregated_count: int
-    category: str
+    requested_category: str
     query: str
     freshness: str
     store_prefix: Optional[str] = ""

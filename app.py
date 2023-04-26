@@ -3,7 +3,7 @@ from typing import List, Set
 import urllib.parse
 from datetime import datetime
 
-from news_aggregator_data_access_layer.config import SELF_USER_ID
+from news_aggregator_data_access_layer.config import ALL_CATEGORIES_STR, SELF_USER_ID
 from news_aggregator_data_access_layer.models.dynamodb import (
     TrustedNewsProviders,
     UserTopics,
@@ -21,7 +21,7 @@ test_self_user_topic_event_with_category = {
 }
 test_self_user_topic_event_without_category = {
     "topic": "Generative AI",
-    "categories": [""],
+    "categories": [ALL_CATEGORIES_STR],
     "max_aggregator_results": 25,
 }
 
@@ -52,6 +52,10 @@ def aggregate_bing_news_self(event, context):
             exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}
+
+
+def source_articles(event, context):
+    pass
 
 
 def create_user_topic(event, context):
