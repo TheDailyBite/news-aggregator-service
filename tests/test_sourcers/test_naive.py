@@ -40,12 +40,15 @@ def test_naive_sourcer_init():
         TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS, s3_client=test_s3_client
     )
     assert naive_sourcer.aggregation_dt == TEST_DT_1
+    assert naive_sourcer.aggregation_date_str == dt_to_lexicographic_date_s3_prefix(TEST_DT_1)
     assert naive_sourcer.s3_client == test_s3_client
     assert naive_sourcer.bucket_name == CANDIDATE_ARTICLES_S3_BUCKET
     assert isinstance(naive_sourcer.candidate_articles, CandidateArticles)
     assert naive_sourcer.topics == TEST_TOPICS
+    assert naive_sourcer.sorting is None
     assert naive_sourcer.aggregators == set()
     assert naive_sourcer.article_inventory == dict()
+    assert naive_sourcer.sourced_articles == []
 
 
 def test_naive_sourcer_populate_article_inventory_no_articles():
@@ -298,17 +301,20 @@ def test_source_articles_single_topic_single_aggregator_no_category(
         sorting=sorting,
     )
     raw_articles = [[raw_article_1_topic_0, raw_article_2_topic_0, raw_article_3_topic_0], [], []]
-    expected_sourced_articles: Mapping[str, Any] = {topic: {} for topic in TEST_TOPICS}
-    expected_sourced_articles_all_cat = [raw_articles[0][i] for i in expected_sourced_articles_idxs]
-    expected_sourced_articles[TEST_TOPICS[0]][
-        ALL_CATEGORIES_STR
-    ] = expected_sourced_articles_all_cat
+    # we only assert the raw article attribute in the sourced article
+    expected_sourced_articles_raw_articles = [
+        raw_articles[0][i] for i in expected_sourced_articles_idxs
+    ]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
         naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
-        assert expected_sourced_articles == actual_sourced_articles
+        for expected_raw_article in expected_sourced_articles_raw_articles:
+            assert any(
+                expected_raw_article == actual_sourced_article.raw_article
+                for actual_sourced_article in actual_sourced_articles
+            )
 
 
 def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting():
@@ -395,25 +401,22 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
         [raw_article_1_topic_1_cat_1_agg_1, raw_article_2_topic_1_cat_1_agg_2],
         [],
     ]
-    expected_sourced_articles: Mapping[str, Any] = {topic: {} for topic in TEST_TOPICS}
-    expected_sourced_articles_topic_0_cat_1 = [raw_article_1_topic_0_cat_1_agg_1]
-    expected_sourced_articles_topic_0_cat_2 = [raw_article_2_topic_0_cat_2_agg_1]
-    expected_sourced_articles_topic_1_cat_1 = [raw_article_1_topic_1_cat_1_agg_1]
-    expected_sourced_articles[TEST_TOPICS[0]][
-        TEST_CATEGORY_1
-    ] = expected_sourced_articles_topic_0_cat_1
-    expected_sourced_articles[TEST_TOPICS[0]][
-        TEST_CATEGORY_2
-    ] = expected_sourced_articles_topic_0_cat_2
-    expected_sourced_articles[TEST_TOPICS[1]][
-        TEST_CATEGORY_1
-    ] = expected_sourced_articles_topic_1_cat_1
+    # we only assert the raw article attribute in the sourced article
+    expected_sourced_articles_raw_articles = [
+        raw_article_1_topic_0_cat_1_agg_1,
+        raw_article_2_topic_0_cat_2_agg_1,
+        raw_article_1_topic_1_cat_1_agg_1,
+    ]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
         naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
-        assert expected_sourced_articles == actual_sourced_articles
+        for expected_raw_article in expected_sourced_articles_raw_articles:
+            assert any(
+                expected_raw_article == actual_sourced_article.raw_article
+                for actual_sourced_article in actual_sourced_articles
+            )
 
 
 def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting_k_2():
@@ -500,31 +503,24 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
         [raw_article_1_topic_1_cat_1_agg_1, raw_article_2_topic_1_cat_1_agg_2],
         [],
     ]
-    expected_sourced_articles: Mapping[str, Any] = {topic: {} for topic in TEST_TOPICS}
-    expected_sourced_articles_topic_0_cat_1 = [raw_article_1_topic_0_cat_1_agg_1]
-    expected_sourced_articles_topic_0_cat_2 = [
+    # we only assert the raw article attribute in the sourced article
+    expected_sourced_articles_raw_articles = [
+        raw_article_1_topic_0_cat_1_agg_1,
         raw_article_4_topic_0_cat_2_agg_2,
         raw_article_2_topic_0_cat_2_agg_1,
-    ]
-    expected_sourced_articles_topic_1_cat_1 = [
         raw_article_2_topic_1_cat_1_agg_2,
         raw_article_1_topic_1_cat_1_agg_1,
     ]
-    expected_sourced_articles[TEST_TOPICS[0]][
-        TEST_CATEGORY_1
-    ] = expected_sourced_articles_topic_0_cat_1
-    expected_sourced_articles[TEST_TOPICS[0]][
-        TEST_CATEGORY_2
-    ] = expected_sourced_articles_topic_0_cat_2
-    expected_sourced_articles[TEST_TOPICS[1]][
-        TEST_CATEGORY_1
-    ] = expected_sourced_articles_topic_1_cat_1
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
         naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
-        assert expected_sourced_articles == actual_sourced_articles
+        for expected_raw_article in expected_sourced_articles_raw_articles:
+            assert any(
+                expected_raw_article == actual_sourced_article.raw_article
+                for actual_sourced_article in actual_sourced_articles
+            )
 
 
 def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
@@ -611,22 +607,19 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
         [raw_article_1_topic_1_cat_1_agg_1, raw_article_2_topic_1_cat_1_agg_2],
         [],
     ]
-    expected_sourced_articles: Mapping[str, Any] = {topic: {} for topic in TEST_TOPICS}
-    expected_sourced_articles_topic_0_cat_1 = [raw_article_1_topic_0_cat_1_agg_1]
-    expected_sourced_articles_topic_0_cat_2 = [raw_article_4_topic_0_cat_2_agg_2]
-    expected_sourced_articles_topic_1_cat_1 = [raw_article_2_topic_1_cat_1_agg_2]
-    expected_sourced_articles[TEST_TOPICS[0]][
-        TEST_CATEGORY_1
-    ] = expected_sourced_articles_topic_0_cat_1
-    expected_sourced_articles[TEST_TOPICS[0]][
-        TEST_CATEGORY_2
-    ] = expected_sourced_articles_topic_0_cat_2
-    expected_sourced_articles[TEST_TOPICS[1]][
-        TEST_CATEGORY_1
-    ] = expected_sourced_articles_topic_1_cat_1
+    # we only assert the raw article attribute in the sourced article
+    expected_sourced_articles_raw_articles = [
+        raw_article_1_topic_0_cat_1_agg_1,
+        raw_article_4_topic_0_cat_2_agg_2,
+        raw_article_2_topic_1_cat_1_agg_2,
+    ]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
         naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
-        assert expected_sourced_articles == actual_sourced_articles
+        for expected_raw_article in expected_sourced_articles_raw_articles:
+            assert any(
+                expected_raw_article == actual_sourced_article.raw_article
+                for actual_sourced_article in actual_sourced_articles
+            )

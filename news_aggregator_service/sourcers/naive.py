@@ -15,8 +15,10 @@ from news_aggregator_data_access_layer.constants import (
     RELEVANCE_SORTING_STR,
     ResultRefTypes,
 )
+from news_aggregator_data_access_layer.utils.s3 import dt_to_lexicographic_date_s3_prefix
 
 from news_aggregator_service.config import SOURCING_DEFAULT_TOP_K
+from news_aggregator_service.sourcers.models.sourced_articles import SourcedArticle
 from news_aggregator_service.utils.telemetry import setup_logger
 
 logger = setup_logger(__name__)
@@ -33,6 +35,7 @@ class NaiveSourcer:
         ),
     ):
         self.aggregation_dt = aggregation_dt
+        self.aggregation_date_str = dt_to_lexicographic_date_s3_prefix(aggregation_dt)
         self.s3_client = s3_client
         self.bucket_name = bucket_name
         self.candidate_articles = CandidateArticles(ResultRefTypes.S3, self.aggregation_dt)
@@ -40,6 +43,7 @@ class NaiveSourcer:
         self.sorting = None
         self.aggregators: Set[str] = set()
         self.article_inventory: Dict[str, Any] = dict()
+        self.sourced_articles: List[SourcedArticle] = []
 
     def _get_sorting_lambda(self, sorting: str) -> Any:
         if sorting == RELEVANCE_SORTING_STR:
@@ -108,15 +112,12 @@ class NaiveSourcer:
                         key=self._get_sorting_lambda(self.sorting)  # type: ignore
                     )
 
-    def source_articles(
-        self, top_k: int = SOURCING_DEFAULT_TOP_K
-    ) -> Mapping[str, Mapping[str, List[RawArticle]]]:
+    def source_articles(self, top_k: int = SOURCING_DEFAULT_TOP_K) -> List[SourcedArticle]:
         """This sources the articles from the article inventory.
         The goal of this method is to source the top k articles for each topic and category.
         Currently, the articles from different aggregators are treated equally and are sourced in a round-robin fashion,
         until we reach the top k articles for the topic and category.
         The articles are sourced from the article inventory.
-        The articles are then written to the candidate articles bucket (sourced candidate articles prefix).
         """
         logger.info(
             f"Sourcing top_k {top_k} articles for topics {self.topics} and respective categories..."
@@ -124,10 +125,7 @@ class NaiveSourcer:
         if not self.article_inventory:
             logger.info("Populating article inventory first since it is empty")
             self.populate_article_inventory()
-        sourced_articles: Mapping[str, Any] = {
-            topic: {category: [] for category in self.article_inventory[topic].keys()}
-            for topic in self.topics
-        }
+        self.sourced_articles = []
         for topic in self.topics:
             for category in self.article_inventory[topic].keys():
                 articles_for_topic = [
@@ -137,6 +135,16 @@ class NaiveSourcer:
                 ]
                 sourcing_func, sorting_lambda = self._get_sourcing_func(self.sorting)  # type: ignore
                 top_k_articles = sourcing_func(top_k, articles_for_topic, key=sorting_lambda)
-                sourced_articles[topic][category] = top_k_articles
-                # TODO - store them
-        return sourced_articles
+                self.sourced_articles.extend(
+                    [
+                        SourcedArticle(
+                            article, self.aggregation_date_str, topic, category, self.s3_client
+                        )
+                        for article in top_k_articles
+                    ]
+                )
+        return self.sourced_articles
+
+    def store_articles(self) -> None:
+        for sourced_article in self.sourced_articles:
+            sourced_article.store_article()
