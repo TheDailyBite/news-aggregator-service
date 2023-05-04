@@ -1,6 +1,7 @@
-from typing import Any, Dict, List, Mapping, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 import heapq
+from collections.abc import Mapping
 from datetime import datetime
 
 import boto3
@@ -28,8 +29,7 @@ class NaiveSourcer:
     def __init__(
         self,
         aggregation_dt: datetime,
-        bucket_name: str,
-        topics: List[str],
+        topics: list[str],
         s3_client: boto3.client = boto3.client(
             service_name="s3", region_name=REGION_NAME, endpoint_url=S3_ENDPOINT_URL
         ),
@@ -37,13 +37,12 @@ class NaiveSourcer:
         self.aggregation_dt = aggregation_dt
         self.aggregation_date_str = dt_to_lexicographic_date_s3_prefix(aggregation_dt)
         self.s3_client = s3_client
-        self.bucket_name = bucket_name
         self.candidate_articles = CandidateArticles(ResultRefTypes.S3, self.aggregation_dt)
         self.topics = topics
         self.sorting = None
-        self.aggregators: Set[str] = set()
-        self.article_inventory: Dict[str, Any] = dict()
-        self.sourced_articles: List[SourcedArticle] = []
+        self.aggregators: set[str] = set()
+        self.article_inventory: dict[str, Any] = dict()
+        self.sourced_articles: list[SourcedArticle] = []
 
     def _get_sorting_lambda(self, sorting: str) -> Any:
         if sorting == RELEVANCE_SORTING_STR:
@@ -53,7 +52,7 @@ class NaiveSourcer:
         else:
             raise ValueError(f"Invalid sorting {sorting}")
 
-    def _get_sourcing_func(self, sorting: str) -> Tuple[Any, Any]:
+    def _get_sourcing_func(self, sorting: str) -> tuple[Any, Any]:
         if sorting == RELEVANCE_SORTING_STR:
             return (heapq.nsmallest, self._get_sorting_lambda(sorting))
         elif sorting == DATE_SORTING_STR:
@@ -112,7 +111,7 @@ class NaiveSourcer:
                         key=self._get_sorting_lambda(self.sorting)  # type: ignore
                     )
 
-    def source_articles(self, top_k: int = SOURCING_DEFAULT_TOP_K) -> List[SourcedArticle]:
+    def source_articles(self, top_k: int = SOURCING_DEFAULT_TOP_K) -> list[SourcedArticle]:
         """This sources the articles from the article inventory.
         The goal of this method is to source the top k articles for each topic and category.
         Currently, the articles from different aggregators are treated equally and are sourced in a round-robin fashion,

@@ -1,7 +1,7 @@
 from typing import List, Set
 
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from news_aggregator_data_access_layer.config import ALL_CATEGORIES_STR, SELF_USER_ID
 from news_aggregator_data_access_layer.models.dynamodb import (
@@ -11,6 +11,7 @@ from news_aggregator_data_access_layer.models.dynamodb import (
 )
 
 from news_aggregator_service.aggregators import bing
+from news_aggregator_service.sourcers.naive import NaiveSourcer
 
 create_tables()
 
@@ -35,7 +36,7 @@ def aggregate_bing_news_self(event, context):
     try:
         trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
         user_topics = UserTopics.query(SELF_USER_ID)
-        results: List[str] = []
+        results: list[str] = []
         for user_topic in user_topics:
             if user_topic.is_active:
                 aggregation_dt = datetime.utcnow()
@@ -54,8 +55,22 @@ def aggregate_bing_news_self(event, context):
         return {"statusCode": 500, "body": {"error": str(e)}}
 
 
-def source_articles(event, context):
-    pass
+def source_articles_self(event, context):
+    # NOT sure in future maybe lambda to scan dynamodb when multi user
+    now_dt = datetime.utcnow()
+    # the aggregation datetime for sourcing is always the day before
+    # for this reason it is important to schedule this lambda to run after midnight UTC
+    # and to account for retries
+    aggregation_dt = now_dt - timedelta(days=1)
+    active_topics: list[str] = [
+        user_topic.topic for user_topic in UserTopics.query(SELF_USER_ID) if user_topic.is_active
+    ]
+    logger.info(
+        f"Sourcing articles for self user {SELF_USER_ID} and active topics {active_topics} an aggregation datetime {aggregation_dt}. Now datetime {now_dt}..."
+    )
+    naive_sourcer = NaiveSourcer(aggregation_dt, active_topics)
+    sourced_articles = naive_sourcer.source_articles()
+    naive_sourcer.store_articles()
 
 
 def create_user_topic(event, context):

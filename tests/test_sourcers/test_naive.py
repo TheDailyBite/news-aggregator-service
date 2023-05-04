@@ -1,5 +1,6 @@
-from typing import Any, List, Mapping
+from typing import Any, List
 
+from collections.abc import Mapping
 from datetime import datetime
 from unittest import mock
 
@@ -36,13 +37,10 @@ TEST_CATEGORY_2 = "category_2"
 
 def test_naive_sourcer_init():
     test_s3_client = "s3_client"
-    naive_sourcer = NaiveSourcer(
-        TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS, s3_client=test_s3_client
-    )
+    naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS, s3_client=test_s3_client)
     assert naive_sourcer.aggregation_dt == TEST_DT_1
     assert naive_sourcer.aggregation_date_str == dt_to_lexicographic_date_s3_prefix(TEST_DT_1)
     assert naive_sourcer.s3_client == test_s3_client
-    assert naive_sourcer.bucket_name == CANDIDATE_ARTICLES_S3_BUCKET
     assert isinstance(naive_sourcer.candidate_articles, CandidateArticles)
     assert naive_sourcer.topics == TEST_TOPICS
     assert naive_sourcer.sorting is None
@@ -53,7 +51,7 @@ def test_naive_sourcer_init():
 
 def test_naive_sourcer_populate_article_inventory_no_articles():
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.return_value = []
         naive_sourcer.populate_article_inventory()
         assert naive_sourcer.aggregators == set()
@@ -94,7 +92,7 @@ def test_naive_sourcer_populate_article_inventory_single_topic_no_category(sorti
     # these are sorted
     expected_raw_articles_topic_0 = [raw_article_1_topic_0, raw_article_2_topic_0]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         assert naive_sourcer.aggregators == {TEST_AGGREGATOR_ID_1}
@@ -157,7 +155,7 @@ def test_naive_sourcer_populate_article_inventory_single_topic_multi_category(so
     expected_raw_articles_topic_0_no_cat = [raw_article_1_topic_0_no_cat]
     expected_raw_articles_topic_0_cat_1 = [raw_article_1_topic_0_cat_1, raw_article_2_topic_0_cat_1]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         assert naive_sourcer.aggregators == {TEST_AGGREGATOR_ID_1}
@@ -231,7 +229,7 @@ def test_naive_sourcer_populate_article_inventory_multi_topic_multi_category_mul
     expected_raw_articles_topic_1_cat_1_agg_1 = [raw_article_1_topic_1_cat_1_agg_1]
     expected_raw_articles_topic_1_cat_1_agg_2 = [raw_article_2_topic_1_cat_1_agg_2]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         assert naive_sourcer.aggregators == {TEST_AGGREGATOR_ID_1, TEST_AGGREGATOR_ID_2}
@@ -306,7 +304,7 @@ def test_source_articles_single_topic_single_aggregator_no_category(
         raw_articles[0][i] for i in expected_sourced_articles_idxs
     ]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
@@ -408,7 +406,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
         raw_article_1_topic_1_cat_1_agg_1,
     ]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
@@ -512,7 +510,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
         raw_article_1_topic_1_cat_1_agg_1,
     ]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
@@ -614,7 +612,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
         raw_article_2_topic_1_cat_1_agg_2,
     ]
     with mock.patch.object(CandidateArticles, "load_articles") as mock_load_articles:
-        naive_sourcer = NaiveSourcer(TEST_DT_1, CANDIDATE_ARTICLES_S3_BUCKET, TEST_TOPICS)
+        naive_sourcer = NaiveSourcer(TEST_DT_1, TEST_TOPICS)
         mock_load_articles.side_effect = raw_articles
         naive_sourcer.populate_article_inventory()
         actual_sourced_articles = naive_sourcer.source_articles(top_k=top_k)
