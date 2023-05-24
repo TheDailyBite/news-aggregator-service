@@ -23,10 +23,10 @@ TEST_DT_1 = datetime(2023, 4, 11, 21, 2, 39, 4166)
 TEST_DT_2 = datetime(2023, 4, 11, 22, 2, 39, 4166)
 TEST_DT_3 = datetime(2023, 4, 11, 22, 2, 45, 4166)
 TEST_DT_4 = datetime(2023, 4, 11, 23, 2, 45, 4166)
-TEST_DT_1_STR = dt_to_lexicographic_s3_prefix(TEST_DT_1)
-TEST_DT_2_STR = dt_to_lexicographic_s3_prefix(TEST_DT_2)
-TEST_DT_3_STR = dt_to_lexicographic_s3_prefix(TEST_DT_3)
-TEST_DT_4_STR = dt_to_lexicographic_s3_prefix(TEST_DT_4)
+TEST_PUBLISHED_DATE_1_STR = "2021-04-11T21:02:39+00:00"
+TEST_PUBLISHED_DATE_2_STR = "2021-04-11T22:02:39+00:00"
+TEST_PUBLISHED_DATE_3_STR = "2021-04-11T22:02:45+00:00"
+TEST_PUBLISHED_DATE_4_STR = "2021-04-11T23:02:45+00:00"
 
 TEST_TOPICS = ["topic_1", "topic_2", "topic_3"]
 TEST_AGGREGATOR_ID_1 = "aggregator_id_1"
@@ -69,7 +69,7 @@ def test_naive_sourcer_populate_article_inventory_single_topic_no_category(sorti
     raw_article_1_topic_0 = RawArticle(
         article_id="article_id_1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title",
@@ -80,7 +80,7 @@ def test_naive_sourcer_populate_article_inventory_single_topic_no_category(sorti
     raw_article_2_topic_0 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=1,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -114,7 +114,7 @@ def test_naive_sourcer_populate_article_inventory_single_topic_multi_category(so
     raw_article_1_topic_0_no_cat = RawArticle(
         article_id="article_id_1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title",
@@ -125,7 +125,7 @@ def test_naive_sourcer_populate_article_inventory_single_topic_multi_category(so
     raw_article_1_topic_0_cat_1 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -137,7 +137,7 @@ def test_naive_sourcer_populate_article_inventory_single_topic_multi_category(so
     raw_article_2_topic_0_cat_1 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=1,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -173,7 +173,7 @@ def test_naive_sourcer_populate_article_inventory_multi_topic_multi_category_mul
     raw_article_1_topic_0_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -185,7 +185,7 @@ def test_naive_sourcer_populate_article_inventory_multi_topic_multi_category_mul
     raw_article_2_topic_0_cat_2_agg_1 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -197,7 +197,7 @@ def test_naive_sourcer_populate_article_inventory_multi_topic_multi_category_mul
     raw_article_1_topic_1_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[1],
         title="the article title 2",
@@ -209,7 +209,7 @@ def test_naive_sourcer_populate_article_inventory_multi_topic_multi_category_mul
     raw_article_2_topic_1_cat_1_agg_2 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_2,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[1],
         title="the article title 2",
@@ -268,7 +268,7 @@ def test_source_articles_single_topic_single_aggregator_no_category(
     raw_article_1_topic_0 = RawArticle(
         article_id="article_id_1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title",
@@ -279,7 +279,7 @@ def test_source_articles_single_topic_single_aggregator_no_category(
     raw_article_2_topic_0 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=1,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -290,7 +290,7 @@ def test_source_articles_single_topic_single_aggregator_no_category(
     raw_article_3_topic_0 = RawArticle(
         article_id="article_id 3",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_3_STR,
+        date_published=TEST_PUBLISHED_DATE_3_STR,
         aggregation_index=2,
         topic=TEST_TOPICS[0],
         title="the article title 3",
@@ -320,7 +320,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_1_topic_0_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -332,7 +332,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_2_topic_0_cat_2_agg_1 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -344,7 +344,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_3_topic_0_cat_2_agg_1 = RawArticle(
         article_id="article_id 3",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_3_STR,
+        date_published=TEST_PUBLISHED_DATE_3_STR,
         aggregation_index=1,
         topic=TEST_TOPICS[0],
         title="the article title 3",
@@ -356,7 +356,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_4_topic_0_cat_2_agg_2 = RawArticle(
         article_id="article_id 4",
         aggregator_id=TEST_AGGREGATOR_ID_2,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=1,  # NOTE - this would typically be 0 for a different aggregator; I'm forcing it to be 1 to make the test deterministic
         topic=TEST_TOPICS[0],
         title="the article title 4",
@@ -368,7 +368,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_1_topic_1_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[1],
         title="the article title 2",
@@ -380,7 +380,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_2_topic_1_cat_1_agg_2 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_2,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=1,  # NOTE - this would typically be 0 for a different aggregator; I'm forcing it to be 1 to make the test deterministic
         topic=TEST_TOPICS[1],
         title="the article title 2",
@@ -422,7 +422,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_1_topic_0_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -434,7 +434,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_2_topic_0_cat_2_agg_1 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=1,  # NOTE - this would typically be 0 for a different aggregator; I'm forcing it to be 1 to make the test deterministic
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -446,7 +446,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_3_topic_0_cat_2_agg_1 = RawArticle(
         article_id="article_id 3",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_3_STR,
+        date_published=TEST_PUBLISHED_DATE_3_STR,
         aggregation_index=2,
         topic=TEST_TOPICS[0],
         title="the article title 3",
@@ -458,7 +458,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_4_topic_0_cat_2_agg_2 = RawArticle(
         article_id="article_id 4",
         aggregator_id=TEST_AGGREGATOR_ID_2,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 4",
@@ -470,7 +470,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_1_topic_1_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=1,  # NOTE - this would typically be 0 for a different aggregator; I'm forcing it to be 1 to make the test deterministic
         topic=TEST_TOPICS[1],
         title="the article title 2",
@@ -482,7 +482,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_relevance_sorting
     raw_article_2_topic_1_cat_1_agg_2 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_2,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[1],
         title="the article title 2",
@@ -526,7 +526,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
     raw_article_1_topic_0_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -538,7 +538,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
     raw_article_2_topic_0_cat_2_agg_1 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 2",
@@ -550,7 +550,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
     raw_article_3_topic_0_cat_2_agg_1 = RawArticle(
         article_id="article_id 3",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_3_STR,
+        date_published=TEST_PUBLISHED_DATE_3_STR,
         aggregation_index=1,
         topic=TEST_TOPICS[0],
         title="the article title 3",
@@ -562,7 +562,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
     raw_article_4_topic_0_cat_2_agg_2 = RawArticle(
         article_id="article_id 4",
         aggregator_id=TEST_AGGREGATOR_ID_2,
-        date_published=TEST_DT_4_STR,
+        date_published=TEST_PUBLISHED_DATE_4_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[0],
         title="the article title 4",
@@ -574,7 +574,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
     raw_article_1_topic_1_cat_1_agg_1 = RawArticle(
         article_id="article_id 1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_DT_1_STR,
+        date_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[1],
         title="the article title 2",
@@ -586,7 +586,7 @@ def test_source_articles_single_topic_multi_agg_multi_category_date_sorting():
     raw_article_2_topic_1_cat_1_agg_2 = RawArticle(
         article_id="article_id 2",
         aggregator_id=TEST_AGGREGATOR_ID_2,
-        date_published=TEST_DT_2_STR,
+        date_published=TEST_PUBLISHED_DATE_2_STR,
         aggregation_index=0,
         topic=TEST_TOPICS[1],
         title="the article title 2",

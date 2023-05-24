@@ -3,7 +3,8 @@ from typing import List, Set
 import urllib.parse
 from datetime import datetime, timedelta
 
-from news_aggregator_data_access_layer.config import ALL_CATEGORIES_STR, SELF_USER_ID
+from news_aggregator_data_access_layer.config import SELF_USER_ID
+from news_aggregator_data_access_layer.constants import ALL_CATEGORIES_STR
 from news_aggregator_data_access_layer.models.dynamodb import (
     TrustedNewsProviders,
     UserTopics,
@@ -37,6 +38,13 @@ def aggregate_bing_news_self(event, context):
         trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
         user_topics = UserTopics.query(SELF_USER_ID)
         results: list[str] = []
+        # TODO - before expanding to more users we will need to implement logic for only aggregating articles
+        # per unique topic - category. For example two users with "Generative AI" for topic and no category
+        # would see exactly the same articles. With current logic different users with same topic would
+        # re-aggregate which is a waste of compute
+        # 5/24/23: I am starting to lean toward a different approach: We contronl which topics (and associated categories) are supported.
+        # then users can subscribe to these if they wish. This allows us to slowly increase topics and categories and makes for a cleaner clustering
+        # when that is implemented.
         for user_topic in user_topics:
             if user_topic.is_active:
                 aggregation_dt = datetime.utcnow()
@@ -62,6 +70,9 @@ def source_articles_self(event, context):
     # for this reason it is important to schedule this lambda to run after midnight UTC
     # and to account for retries
     aggregation_dt = now_dt - timedelta(days=1)
+    if event and event.get("aggregation_dt"):
+        logger.info(f"Using aggregation datetime from event: {event['aggregation_dt']}")
+        aggregation_dt = datetime.fromisoformat(event["aggregation_dt"])
     active_topics: list[str] = [
         user_topic.topic for user_topic in UserTopics.query(SELF_USER_ID) if user_topic.is_active
     ]
