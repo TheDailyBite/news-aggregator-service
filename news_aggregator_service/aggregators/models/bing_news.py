@@ -41,7 +41,7 @@ class QueryContext(CamelModel):
 
 
 class APIErrorResponse(CamelModel):
-    errors: List[Error]
+    errors: list[Error]
 
 
 class Thing(CamelModel):
@@ -64,7 +64,7 @@ class Thumbnail(CamelModel):
 
 
 class Image(CamelModel):
-    provider: Optional[List[Organization]]
+    provider: Optional[list[Organization]]
     thumbnail: Optional[Thumbnail]
     url: Optional[str]
 
@@ -107,36 +107,36 @@ class SortValue(CamelModel):
 
 class NewsArticle(CamelModel):
     category: Optional[str] = ""
-    clustered_articles: Optional[List["NewsArticle"]]
+    clustered_articles: Optional[list["NewsArticle"]]
     date_published: Optional[
         str
-    ]  # The date and time that Bing discovered the article. The date is in the format, YYYY-MM-DDTHH:MM:SS. Not sure why this isn't always present.
+    ]  # The date and time that Bing discovered the article. The date is in the format, YYYY-MM-DDTHH:MM:SSZ. Not sure why this isn't always present.
     description: str
     headline: Optional[bool]
     Id: Optional[str]
     image: Optional[Image]
-    mentions: Optional[List[Thing]]
+    mentions: Optional[list[Thing]]
     name: str
-    provider: List[Organization]
+    provider: list[Organization]
     url: str
     video: Optional[Video]
 
 
 class RelatedTopic(CamelModel):
-    related_news: List[NewsArticle]
+    related_news: list[NewsArticle]
     name: str
     web_search_url: str
 
 
 class TrendingTopicsAPIResponse(CamelModel):
-    value: List[Topic]
+    value: list[Topic]
 
 
 class NewsAnswerAPIResponse(CamelModel):
-    related_topics: Optional[List[RelatedTopic]]
-    sort: Optional[List[SortValue]]
+    related_topics: Optional[list[RelatedTopic]]
+    sort: Optional[list[SortValue]]
     total_estimated_matches: Optional[int]
-    value: List[NewsArticle]
+    value: list[NewsArticle]
     query_context: Optional[QueryContext]
 
 

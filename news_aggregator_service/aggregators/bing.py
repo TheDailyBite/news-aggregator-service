@@ -1,16 +1,22 @@
-from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import json
 import os
 import time
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 
 import boto3
 import requests
 from news_aggregator_data_access_layer.assets.news_assets import CandidateArticles, RawArticle
 from news_aggregator_data_access_layer.config import S3_ENDPOINT_URL
-from news_aggregator_data_access_layer.constants import AggregatorRunStatus, ResultRefTypes
+from news_aggregator_data_access_layer.constants import (
+    ALL_CATEGORIES_STR,
+    AggregatorRunStatus,
+    ResultRefTypes,
+)
 from news_aggregator_data_access_layer.models.dynamodb import AggregatorRuns
+from news_aggregator_data_access_layer.utils.datetime import standardize_published_date
 
 from news_aggregator_service.aggregators.models import bing_news
 from news_aggregator_service.aggregators.models.aggregations import AggregationResults
@@ -25,6 +31,7 @@ from news_aggregator_service.config import (
     REGION_NAME,
     REQUESTS_SLEEP_TIME_S,
 )
+from news_aggregator_service.constants import BING_NEWS_PUBLISHED_DATE_REGEX
 from news_aggregator_service.utils.secrets import get_secret
 
 # Set up Bing News Search API credentials
@@ -54,19 +61,19 @@ logger = setup_logger(__name__)
 
 
 def generate_article_id(
-    article_idx: int, aggregator_id: str, candidate_dt: datetime, category: Optional[str]
+    article_idx: int, aggregator_id: str, candidate_dt: datetime, requested_category: Optional[str]
 ) -> str:
     candidate_dt_str = candidate_dt.strftime("%Y%m%d%H%M%S%f")
     article_idx_str = f"{article_idx}".zfill(10)
     article_id = f"{candidate_dt_str}_{article_idx_str}_{aggregator_id}"
-    if category:
-        article_id += f"_{category}"
+    if requested_category:
+        article_id += f"_{requested_category}"
     return article_id
 
 
 def aggregate_candidates_for_query(
-    query: str, categories: Set[str], aggregation_dt: datetime, max_aggregator_results: int = -1
-) -> Tuple[List[AggregationResults], str]:
+    query: str, categories: set[str], aggregation_dt: datetime, max_aggregator_results: int = -1
+) -> tuple[list[AggregationResults], str]:
     aggregator_run = AggregatorRuns(BING_AGGREGATOR_ID, aggregation_dt)
     aggregator_run.save()
     if max_aggregator_results <= 0:
@@ -75,7 +82,7 @@ def aggregate_candidates_for_query(
         )
         max_aggregator_results = DEFAULT_MAX_BING_AGGREGATOR_RESULTS
     try:
-        query_candidates: Dict[str, List[NewsArticle]] = {}
+        query_candidates: dict[str, list[NewsArticle]] = {}
         aggregation_results = []
         sorting = DEFAULT_BING_SORTING
         freshness = DEFAULT_BING_FRESHNESS
@@ -84,13 +91,13 @@ def aggregate_candidates_for_query(
                 query, freshness, category, sorting, max_aggregator_results
             )
             logger.info(
-                f"Found {len(candidates_for_query)} candidates for query: {query} and category: {category}"
+                f"Found {len(candidates_for_query)} candidates for query: {query} and requested category: {category}"
             )
             query_candidates[category] = candidates_for_query
             aggregation_results.append(
                 AggregationResults(
                     articles_aggregated_count=len(candidates_for_query),
-                    category=category,
+                    requested_category=category,
                     query=query,
                     freshness=freshness,
                     sorting=sorting,
@@ -120,8 +127,8 @@ def aggregate_candidates_for_query(
 
 
 def store_candidates(
-    query: str, candidates: Mapping[str, List[NewsArticle]], sorting: str, aggregation_dt: datetime
-) -> Tuple[str, str]:
+    query: str, candidates: Mapping[str, list[NewsArticle]], sorting: str, aggregation_dt: datetime
+) -> tuple[str, str]:
     logger.info(
         f"Storing {sum([len(category_candidates) for category, category_candidates in candidates.items()])} total candidates across {len(candidates)} categories for query: {query} and sorting: {sorting} and aggregation datetime {aggregation_dt}..."
     )
@@ -132,8 +139,8 @@ def store_candidates(
         for article_idx in range(len(category_candidates)):
             article = category_candidates[article_idx]
             category = article.category
-            # if we have a category for the candidates, make sure it matches the category for the candidate article
-            if category_for_candidates:
+            # if we have a requested category for the candidates, make sure it matches the category for the candidate article
+            if category_for_candidates == ALL_CATEGORIES_STR:
                 if category != category_for_candidates:
                     raise ValueError(
                         f"Category for candidates: {category_for_candidates} does not match category for candidate article: {article}"
@@ -143,12 +150,16 @@ def store_candidates(
             article_id = generate_article_id(
                 article_idx, BING_AGGREGATOR_ID, aggregation_dt, category_for_candidates
             )
+            standardized_published_date = standardize_published_date(
+                article.date_published, BING_NEWS_PUBLISHED_DATE_REGEX
+            )
             raw_article = RawArticle(
                 article_id=article_id,
                 aggregator_id=BING_AGGREGATOR_ID,
-                date_published=article.date_published,
+                date_published=standardized_published_date,
                 aggregation_index=article_idx,
                 topic=query,
+                requested_category=category_for_candidates,
                 category=article.category,
                 title=article.name,
                 url=article.url,
@@ -169,16 +180,16 @@ def store_candidates(
 
 def get_candidates_for_query(
     query: str, freshness: str, category: str, sorting: str, max_aggregator_results: int
-) -> List[NewsArticle]:
-    candidates: List[NewsArticle] = []
+) -> list[NewsArticle]:
+    candidates: list[NewsArticle] = []
     offset = 0
     total_estimated_matches = 0
     page = 0
     logger.info(
-        f"Retrieving a max of {max_aggregator_results} news articles results for search term: {query}, category: {category} and freshness: {freshness}..."
+        f"Retrieving a max of {max_aggregator_results} news articles results for search term: {query}, requested category: {category} and freshness: {freshness}..."
     )
     # currently we use the url only to check for duplicates
-    unique_articles_db: Set[str] = set()
+    unique_articles_db: set[str] = set()
     while True:
         if len(candidates) >= max_aggregator_results:
             logger.info(
@@ -193,7 +204,7 @@ def get_candidates_for_query(
             offset=offset,
             count=article_per_request,
         )
-        if category:
+        if category != ALL_CATEGORIES_STR:
             params.category = category
         # Send API request
         response = requests.get(
@@ -235,8 +246,8 @@ def get_candidates_for_query(
 
 
 def process_articles(
-    articles: List[NewsArticle], unique_articles_db: Set[str], requested_category: str
-) -> List[NewsArticle]:
+    articles: list[NewsArticle], unique_articles_db: set[str], requested_category: str
+) -> list[NewsArticle]:
     processed_articles_list = []
     for article in articles:
         # we have observed that a request for a specific category may return articles with a different category
@@ -254,7 +265,7 @@ def process_articles(
     return processed_articles_list
 
 
-def is_unique_article(article: NewsArticle, unique_articles_db: Set[str]) -> bool:
+def is_unique_article(article: NewsArticle, unique_articles_db: set[str]) -> bool:
     # currently a unique article is defined by a unique url
     if article.url in unique_articles_db:
         logger.info(f"Article with url: {article.url} already exists, skipping...")
