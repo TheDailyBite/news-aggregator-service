@@ -102,6 +102,7 @@ Then run the following to test getting articles for a topic:
 from datetime import datetime, timedelta, timezone
 from news_aggregator_service.aggregators.news_aggregators import BingAggregator
 bing = BingAggregator()
+topic_id = "9910f34e-c25e-4667-8471-296f7bc60f62"
 topic = "Generative+AI"
 category = "science-and-technology"
 end_time = datetime.now(timezone.utc)
@@ -110,7 +111,7 @@ sorting = bing.sorting
 max_aggregator_results = 20
 fetched_articles_count = 100
 trusted_news_providers = []
-aggregated_articles, pub_start_time, pub_end_time = bing.get_candidates_for_topic(topic, category, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
+aggregated_articles, pub_start_time, pub_end_time = bing.get_candidates_for_topic(topic_id, topic, category, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
 ```
 
 ### Set up bots
