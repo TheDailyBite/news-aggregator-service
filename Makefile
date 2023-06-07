@@ -58,7 +58,7 @@ mypy:
 .PHONY: check-safety
 check-safety:
 	poetry check
-	poetry run safety check --full-report --ignore=51457 # ignoring CVE-2022-42969 for py <= 1.11.0 which is installed via pytest. No upgrade available.
+	poetry run safety check --full-report --ignore=51457 --ignore=54672 # ignoring CVE-2022-42969 for py <= 1.11.0 which is installed via pytest. No upgrade available. Ignoring CVE-2017-14158. No upgrade available.
 	poetry run bandit -ll --recursive news_aggregator_service tests
 
 .PHONY: lint
