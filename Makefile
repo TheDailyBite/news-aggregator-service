@@ -12,11 +12,11 @@ VERSION_LAMBDA_ARM64 := latest-lambda-arm64
 #* Poetry
 .PHONY: poetry-download
 poetry-download:
-	curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | $(PYTHON) -
+	curl -sSL https://install.python-poetry.org | $(PYTHON) -
 
 .PHONY: poetry-remove
 poetry-remove:
-	curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | $(PYTHON) - --uninstall
+	curl -sSL https://install.python-poetry.org | $(PYTHON) - --uninstall
 
 #* Installation
 .PHONY: install
@@ -58,7 +58,7 @@ mypy:
 .PHONY: check-safety
 check-safety:
 	poetry check
-	poetry run safety check --full-report --ignore=51457 # ignoring CVE-2022-42969 for py <= 1.11.0 which is installed via pytest. No upgrade available.
+	poetry run safety check --full-report --ignore=51457 --ignore=54672 # ignoring CVE-2022-42969 for py <= 1.11.0 which is installed via pytest. No upgrade available. Ignoring CVE-2017-14158. No upgrade available.
 	poetry run bandit -ll --recursive news_aggregator_service tests
 
 .PHONY: lint
