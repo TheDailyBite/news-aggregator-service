@@ -1,29 +1,40 @@
 from typing import List, Set
 
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from news_aggregator_data_access_layer.config import SELF_USER_ID
-from news_aggregator_data_access_layer.constants import ALL_CATEGORIES_STR
+from news_aggregator_data_access_layer.constants import (
+    ALL_CATEGORIES_STR,
+    SUPPORTED_AGGREGATION_CATEGORIES,
+)
 from news_aggregator_data_access_layer.models.dynamodb import (
+    NewsTopics,
     TrustedNewsProviders,
-    UserTopics,
     create_tables,
+    get_current_dt_utc_attribute,
+    get_uuid4_attribute,
 )
 
-from news_aggregator_service.aggregators import bing
+from news_aggregator_service.aggregators.news_aggregators import AggregatorInterface, BingAggregator
+from news_aggregator_service.config import (
+    AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER,
+    BING_AGGREGATOR_ID,
+    DEFAULT_DAILY_PUBLISHING_LIMIT,
+    ENABLED_AGGREGATORS,
+)
 from news_aggregator_service.sourcers.naive import NaiveSourcer
 
 create_tables()
 
-test_self_user_topic_event_with_category = {
+test_news_topic_event_with_category = {
     "topic": "Generative AI",
-    "categories": ["ScienceAndTechnology"],
+    "category": "science-and-technology",
     "max_aggregator_results": 25,
 }
-test_self_user_topic_event_without_category = {
+test_news_topic_event_without_category = {
     "topic": "Generative AI",
-    "categories": [ALL_CATEGORIES_STR],
+    "category": ALL_CATEGORIES_STR,
     "max_aggregator_results": 25,
 }
 
@@ -32,84 +43,165 @@ from news_aggregator_service.utils.telemetry import setup_logger
 logger = setup_logger(__name__)
 
 
-def aggregate_bing_news_self(event, context):
-    logger.info(f"Aggregating Bing News for self user {SELF_USER_ID}...")
+def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
+    if aggregator_id == BING_AGGREGATOR_ID:
+        return BingAggregator()
+    else:
+        raise ValueError(f"Aggregator {aggregator_id} is not supported")
+
+
+def update_news_topic_last_aggregation_dts(
+    news_topic: NewsTopics, aggregator_id: str, aggregation_data_end_dt: datetime
+) -> None:
+    if aggregator_id == BING_AGGREGATOR_ID:
+        news_topic.update(
+            actions=[
+                NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
+                NewsTopics.bing_aggregation_last_end_time.set(aggregation_data_end_dt),
+            ]
+        )
+    else:
+        raise ValueError(f"Aggregator {aggregator_id} is not supported")
+
+
+def aggregate_news(event, context):
     try:
+        # TODO - we'll probably have a queue of topic id + aggregator id + aggregation_data_start_dt messages to aggregate
+        # and pull from that queue here
+        # we can also add an aggregator_id field and then fetch the aggregator class
+        topic_id = event.get("topic_id", "")
+        aggregator_id = event.get("aggregator_id", "")
+        if aggregator_id not in ENABLED_AGGREGATORS:
+            raise ValueError(f"Aggregator {aggregator_id} is not enabled")
+        # TODO - not sure what this format will be like.
+        # example: "2023-05-30T17:51:22"
+        aggregation_data_start_dt = datetime.fromisoformat(event["aggregation_data_start_dt"])
+        aggregation_data_end_dt = datetime.fromisoformat(event["aggregation_data_end_dt"])
+        news_topic = NewsTopics.get(topic_id)
+        if not news_topic:
+            raise ValueError(f"News Topic with id {topic_id} does not exist")
+        if news_topic.is_active is False:
+            raise ValueError(f"News Topic with id {topic_id} is not active")
+        max_aggregator_results = news_topic.max_aggregator_results
+        fetched_articles_count = max_aggregator_results * AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER
+        logger.info(
+            f"Aggregating news from aggregator {aggregator_id} for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Max aggregator results {max_aggregator_results}"
+        )
         trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
-        user_topics = UserTopics.query(SELF_USER_ID)
-        results: list[str] = []
-        # TODO - before expanding to more users we will need to implement logic for only aggregating articles
-        # per unique topic - category. For example two users with "Generative AI" for topic and no category
-        # would see exactly the same articles. With current logic different users with same topic would
-        # re-aggregate which is a waste of compute
-        # 5/24/23: I am starting to lean toward a different approach: We contronl which topics (and associated categories) are supported.
-        # then users can subscribe to these if they wish. This allows us to slowly increase topics and categories and makes for a cleaner clustering
-        # when that is implemented.
-        for user_topic in user_topics:
-            if user_topic.is_active:
-                aggregation_dt = datetime.utcnow()
-                max_aggregator_results = user_topic.max_aggregator_results
-                # user_topic.max_aggregator_results - can use in the future if we want to limit the number of results
-                aggregation_results, store_prefix = bing.aggregate_candidates_for_query(
-                    user_topic.topic, user_topic.categories, aggregation_dt, max_aggregator_results
-                )
-                results.extend([a_r.json() for a_r in aggregation_results])
+        aggregator = fetch_aggregator(aggregator_id)
+        aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
+            news_topic.topic_id,
+            news_topic.topic,
+            news_topic.category,
+            aggregation_data_start_dt,
+            aggregation_data_end_dt,
+            max_aggregator_results,
+            fetched_articles_count,
+            trusted_news_providers,
+        )
+        update_news_topic_last_aggregation_dts(news_topic, aggregator_id, end_published_dt)
+        results = aggregation_result.json()
         return {"statusCode": 200, "body": {"results": results}}
+    except ValueError as ve:
+        logger.error(
+            f"Failed to aggregate topic id {topic_id} for aggregator {aggregator_id} with error: {ve}",
+            exc_info=True,
+        )
+        return {"statusCode": 400, "body": {"error": str(ve)}}
     except Exception as e:
         logger.error(
-            f"Failed to aggregate Bing News for self user {SELF_USER_ID} with error: {e}",
+            f"Failed to aggregate topic id {topic_id} for aggregator {aggregator_id} with error: {e}",
             exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}
 
 
-def source_articles_self(event, context):
-    # NOT sure in future maybe lambda to scan dynamodb when multi user
-    now_dt = datetime.utcnow()
-    # the aggregation datetime for sourcing is always the day before
-    # for this reason it is important to schedule this lambda to run after midnight UTC
-    # and to account for retries
-    aggregation_dt = now_dt - timedelta(days=1)
-    if event and event.get("aggregation_dt"):
-        logger.info(f"Using aggregation datetime from event: {event['aggregation_dt']}")
-        aggregation_dt = datetime.fromisoformat(event["aggregation_dt"])
-    active_topics: list[str] = [
-        user_topic.topic for user_topic in UserTopics.query(SELF_USER_ID) if user_topic.is_active
-    ]
-    logger.info(
-        f"Sourcing articles for self user {SELF_USER_ID} and active topics {active_topics} an aggregation datetime {aggregation_dt}. Now datetime {now_dt}..."
-    )
-    naive_sourcer = NaiveSourcer(aggregation_dt, active_topics)
-    sourced_articles = naive_sourcer.source_articles()
-    naive_sourcer.store_articles()
+# def source_articles(event, context):
+#     try:
+#         # TODO - we'll probably have a queue of topic id + aggregator id + aggregation_data_start_dt messages to aggregate
+#         # and pull from that queue here
+#         # we can also add an aggregator_id field and then fetch the aggregator class
+#         topic_id = event.get("topic_id", "")
+#         if not topic_id:
+#             raise ValueError("topic_id must be specified")
+#         top_k = event.get("top_k", "")
+#         if not top_k:
+#             raise ValueError("top_k must be specified")
+#         top_k = int(top_k)
+#         news_topic = NewsTopics.get(topic_id)
+#         if not news_topic:
+#             raise ValueError(f"News Topic with id {topic_id} does not exist")
+#         if news_topic.is_active is False:
+#             raise ValueError(f"News Topic with id {topic_id} is not active")
+#         logger.info(f"Sourcing articles for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category})")
+#         naive_sourcer = NaiveSourcer(topic_id, top_k)
+#         sourced_articles = naive_sourcer.source_articles()
+#         naive_sourcer.store_articles()
+#         results = "sourced results"
+#         return {"statusCode": 200, "body": {"results": results}}
+#     except ValueError as ve:
+#         logger.error(
+#             f"Failed to source topic id {topic_id} for top k {top_k} with error: {ve}",
+#             exc_info=True,
+#         )
+#         return {"statusCode": 400, "body": {"error": str(ve)}}
+#     except Exception as e:
+#         logger.error(
+#             f"Failed to source topic id {topic_id} for top k {top_k} with error: {e}",
+#             exc_info=True,
+#         )
+#         return {"statusCode": 500, "body": {"error": str(e)}}
 
 
-def create_user_topic(event, context):
-    topic = event["topic"]
-    topic = urllib.parse.quote_plus(topic)
-    logger.info(f"Url encoded topic: {topic} from original input topic {event['topic']}")
-    categories = set(event["categories"])
-    max_aggregator_results = event.get("max_aggregator_results")
-    logger.info(
-        f"Creating user topic for self user {SELF_USER_ID} with topic: {topic}, categories: {categories}, max aggregator results: {max_aggregator_results}..."
-    )
+def news_topic_exists(topic: str, category: str) -> bool:
+    news_topics = NewsTopics.scan()
+    for news_topic in news_topics:
+        if news_topic.topic == topic and news_topic.category == category:
+            return True
+    return False
+
+
+def create_news_topic(event, context):
     try:
-        UserTopics(
-            SELF_USER_ID,
-            topic,
-            categories=categories,
+        topic = event.get("topic").lower()
+        category = event.get("category").lower()
+        max_aggregator_results = event.get("max_aggregator_results")
+        if category not in SUPPORTED_AGGREGATION_CATEGORIES:
+            raise ValueError(
+                f"Category {category} is not supported. Supported categories: {SUPPORTED_AGGREGATION_CATEGORIES}"
+            )
+        topic = urllib.parse.quote_plus(topic)
+        logger.info(f"Url encoded topic: {topic} from original input topic {event['topic']}")
+        if max_aggregator_results <= 0:
+            raise ValueError(
+                f"max_aggregator_results must be greater than 0. Got {max_aggregator_results}"
+            )
+        if news_topic_exists(topic, category):
+            raise ValueError(f"Topic {topic} and category {category} already exist.")
+        logger.info(
+            f"Creating news topic with topic: {topic}, category: {category}, max aggregator results: {max_aggregator_results}"
+        )
+        topic_id = get_uuid4_attribute()
+        news_topic = NewsTopics(
+            topic_id=topic_id,
+            topic=topic,
+            category=category,
             is_active=True,
+            date_created=get_current_dt_utc_attribute(),
             max_aggregator_results=max_aggregator_results,
-        ).save()
+            daily_publishing_limit=DEFAULT_DAILY_PUBLISHING_LIMIT,
+        )
+        news_topic.save(condition=NewsTopics.topic_id.does_not_exist())
         return {
             "statusCode": 200,
             "body": {
-                "message": f"Created user topic for self user {SELF_USER_ID} with topic: {topic}, categories: {categories}, max aggregator results: {max_aggregator_results}"
+                "message": f"Successfully created news topic with topic: {topic}, category: {category}, max aggregator results: {max_aggregator_results}",
+                "topic_id": topic_id,
             },
         }
     except Exception as e:
         logger.error(
-            f"Failed to create user topic for self user {SELF_USER_ID} with topic: {topic}, categories: {categories}, max aggregator results: {max_aggregator_results} with error: {e}",
+            f"Failed to create news topic with topic: {topic}, category: {category}, max aggregator results: {max_aggregator_results} with error: {e}",
             exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}

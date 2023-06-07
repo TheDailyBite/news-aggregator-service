@@ -77,14 +77,14 @@ class SourcedArticle:
         self.topic_requested_category = (
             f"{self.raw_article.topic}#{self.raw_article.requested_category}"
         )
-        self.sourced_article_id = f"{self.raw_article.date_published}#{str(uuid.uuid4())}"
+        self.sourced_article_id = f"{self.raw_article.dt_published}#{str(uuid.uuid4())}"
         self.s3_client = s3_client
         self.sourced_candidate_articles_s3_extension = ".json"
         self.summary_s3_extension = ".txt"
         self.summarization_suffix = "_summary"
         self.success_marker_fn = "__SUCCESS__"
         self.is_processed = False
-        self.long_article_summary: Optional[str] = None
+        self.full_article_summary: Optional[str] = None
         self.medium_article_summary: Optional[str] = None
         self.short_article_summary: Optional[str] = None
         summarization_open_ai = ChatOpenAI(
@@ -129,7 +129,7 @@ class SourcedArticle:
         self.medium_article_summary = self._summarize_article(
             summarization_length=SummarizationLength.MEDIUM
         )
-        self.long_article_summary = self._summarize_article(
+        self.full_article_summary = self._summarize_article(
             summarization_length=SummarizationLength.LONG
         )
         # create embedding?
@@ -156,7 +156,7 @@ class SourcedArticle:
         medium_summary_key = self._get_sourced_candidate_article_summary_s3_object_key(
             SummarizationLength.MEDIUM
         )
-        long_summary_key = self._get_sourced_candidate_article_summary_s3_object_key(
+        full_summary_key = self._get_sourced_candidate_article_summary_s3_object_key(
             SummarizationLength.LONG
         )
         # TODO - might want to create a model for sourced articles to add additional context
@@ -181,8 +181,8 @@ class SourcedArticle:
         )
         store_object_in_s3(
             SOURCED_ARTICLES_S3_BUCKET,
-            long_summary_key,
-            self.long_article_summary,
+            full_summary_key,
+            self.full_article_summary,
             s3_client=self.s3_client,
         )
         store_success_file(
@@ -196,14 +196,14 @@ class SourcedArticle:
         db_sourced_article = SourcedArticles(
             self.topic_requested_category,
             self.sourced_article_id,
-            dt_published=datetime.fromisoformat(self.raw_article.date_published),
+            dt_published=datetime.fromisoformat(self.raw_article.dt_published),
             title=self.raw_article.title,
             topic=self.raw_article.topic,
             category=self.raw_article.category,
             original_article_id=self.original_article_id,
             short_summary_ref=short_summary_key,
             medium_summary_ref=medium_summary_key,
-            long_summary_ref=long_summary_key,
+            full_summary_ref=full_summary_key,
         )
         logger.info(
             f"Saving sourced article for partition key {self.topic_requested_category} and range key {self.sourced_article_id} to dynamodb..."

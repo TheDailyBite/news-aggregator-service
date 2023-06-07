@@ -28,6 +28,7 @@ TEST_DT_2_STR = dt_to_lexicographic_s3_prefix(TEST_DT_2)
 TEST_DT_3_STR = dt_to_lexicographic_s3_prefix(TEST_DT_3)
 TEST_DT_4_STR = dt_to_lexicographic_s3_prefix(TEST_DT_4)
 
+TEST_TOPIC_IDS = ["topic_id_1", "topic_id_2", "topic_id_3"]
 TEST_TOPICS = ["topic_1", "topic_2", "topic_3"]
 TEST_AGGREGATOR_ID_1 = "aggregator_id_1"
 TEST_AGGREGATOR_ID_2 = "aggregator_id_2"
@@ -40,8 +41,9 @@ def test_sourced_article_init():
     raw_article_0 = RawArticle(
         article_id="article_id_1",
         aggregator_id=TEST_AGGREGATOR_ID_1,
-        date_published=TEST_PUBLISHED_DATE_1_STR,
+        dt_published=TEST_PUBLISHED_DATE_1_STR,
         aggregation_index=0,
+        topic_id=TEST_TOPIC_IDS[0],
         topic=TEST_TOPICS[0],
         title="the article title",
         url="url",
@@ -61,9 +63,9 @@ def test_sourced_article_init():
     assert sourced_article.aggregation_date_str == TEST_DT_1_STR
     assert sourced_article.topic_requested_category == f"{TEST_TOPICS[0]}#{ALL_CATEGORIES_STR}"
     assert TEST_PUBLISHED_DATE_1_STR in sourced_article.sourced_article_id
-    assert sourced_article.long_article_summary is None
-    assert sourced_article.long_article_summary is None
-    assert sourced_article.long_article_summary is None
+    assert sourced_article.full_article_summary is None
+    assert sourced_article.full_article_summary is None
+    assert sourced_article.full_article_summary is None
     assert sourced_article._summarization_prompt_template is not None
     assert sourced_article._summarization_llm_chain is not None
     assert sourced_article.is_processed is False
