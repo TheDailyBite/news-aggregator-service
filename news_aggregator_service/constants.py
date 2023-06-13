@@ -3,9 +3,11 @@ from news_aggregator_data_access_layer.constants import ALL_CATEGORIES_STR
 # TODO - move to app config
 SUMMARIZATION_FAILURE_MESSAGE = "Summarization failed."
 ARTICLE_SEPARATOR = "===================="
-MEDIUM_SUMMARY_DEFINITION = "The summary should be a medium length summary. A medium length summary is 50% of length of the original text (at most 1000 words)."
-SHORT_SUMMARY_DEFINITION = "The summary should be a short length summary. A short length summary is 10% of length of the original text (at most 200 words)."
-# rewrite
+MEDIUM_SUMMARY_DEFINITION = "The summary should be a medium length summary. A medium length summary is between 300-600 words."
+SHORT_SUMMARY_DEFINITION = (
+    "The summary should be a short length summary. A short length summary is between 150-200 words."
+)
+# article rewrite
 NEWS_REPORTED_INTRO = "You are a world class news reporter, who is known for writing unbiased, informative, and entertaining articles in the ####topic#### space. "
 REFINE_REWRITE_PROMPT_TEMPLATE = (
     NEWS_REPORTED_INTRO
@@ -28,6 +30,17 @@ REFINE_REWRITE_REFINE_STEP_TEMPLATE = (
     Given the new context, refine the original rewritten news article.
     If the context isn't useful, return the original rewritten news article.
     REWRITE:"""
+)
+# title rewrite
+TITLE_REWRITE_TEMPLATE = (
+    NEWS_REPORTED_INTRO
+    + """
+    Your task is to write an attention grabbing title for a news article based on existing titles for articles covering the same topic that you can use as reference in helping you write this new title.
+    The title should be between 5-20 words.
+
+    "{text}"
+
+    TITLE:"""
 )
 # summary
 SUMMARIZATION_TEMPLATE = (

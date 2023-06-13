@@ -22,6 +22,7 @@ from news_aggregator_service.sourcers.models.sourced_articles import (
     SourcedArticle,
 )
 
+TEST_SOURCING_RUN_ID = "test_sourcing_run_id"
 TEST_DT_1 = datetime(2023, 4, 11, 21, 2, 39, 4166)
 TEST_DT_2 = datetime(2023, 4, 11, 22, 2, 39, 4166)
 TEST_DT_3 = datetime(2023, 4, 11, 22, 2, 45, 4166)
@@ -72,6 +73,7 @@ def test_sourced_article_init():
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
         ALL_CATEGORIES_STR,
+        TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )
     assert sourced_article.article_cluster == article_cluster
@@ -114,6 +116,7 @@ def test_sourced_article__chunk_text_in_docs_same_docs_equal():
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
         ALL_CATEGORIES_STR,
+        TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )
     sourced_article.text_chunk_token_length = 250
@@ -151,6 +154,7 @@ def test_sourced_article__chunk_text_in_docs_same_docs_unequal():
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
         ALL_CATEGORIES_STR,
+        TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )
     sourced_article.text_chunk_token_length = 250
@@ -186,6 +190,7 @@ def test_sourced_article__chunk_text_in_docs_different_docs():
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
         ALL_CATEGORIES_STR,
+        TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )
     sourced_article.text_chunk_token_length = 2

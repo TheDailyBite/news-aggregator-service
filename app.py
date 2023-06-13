@@ -131,8 +131,8 @@ def source_articles(event, context):
         sourcing_date = datetime.fromisoformat(sourcing_date)
         daily_sourcing_frequency = event.get("daily_sourcing_frequency")
         if not daily_sourcing_frequency:
-            raise ValueError("top_k must be specified")
-        daily_sourcing_frequency = int(daily_sourcing_frequency)
+            raise ValueError("daily_sourcing_frequency must be specified")
+        daily_sourcing_frequency = float(daily_sourcing_frequency)
         news_topic = NewsTopics.get(topic_id)
         if not news_topic:
             raise ValueError(f"News Topic with id {topic_id} does not exist")
@@ -143,10 +143,17 @@ def source_articles(event, context):
         logger.info(
             f"Sourcing news for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Top k {top_k}."
         )
-        naive_sourcer = NaiveSourcer(topic_id, top_k)
+        naive_sourcer = NaiveSourcer(
+            topic_id,
+            news_topic.topic,
+            news_topic.category,
+            top_k,
+            sourcing_date,
+            daily_publishing_limit,
+        )
         sourced_articles = naive_sourcer.source_articles()
         naive_sourcer.store_articles()
-        results = "sourced results"
+        results = [sourced_article.sourced_article_id for sourced_article in sourced_articles]
         return {"statusCode": 200, "body": {"results": results}}
     except ValueError as ve:
         logger.error(

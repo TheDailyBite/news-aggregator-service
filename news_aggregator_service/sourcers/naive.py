@@ -16,6 +16,7 @@ from news_aggregator_data_access_layer.constants import (
     DATE_SORTING_STR,
     RELEVANCE_SORTING_STR,
     AggregatorRunStatus,
+    ArticleApprovalStatus,
     ResultRefTypes,
 )
 from news_aggregator_data_access_layer.models.dynamodb import (
@@ -65,9 +66,12 @@ class NaiveSourcer:
     def is_daily_publishing_limit_for_topic_reached(self) -> bool:
         """This checks if the daily publishing limit for the topic is reached"""
         published_articles_on_date_count = 0
-        published_articles = SourcedArticles.lsi_1.query(self.topic_id, self.sourcing_date_str)
-        for _ in published_articles:
-            published_articles_on_date_count += 1
+        published_articles = SourcedArticles.lsi_1.query(
+            self.topic_id, SourcedArticles.date_published == self.sourcing_date_str
+        )
+        for article in published_articles:
+            if article.article_approval_status == ArticleApprovalStatus.APPROVED:
+                published_articles_on_date_count += 1
         if published_articles_on_date_count >= self.daily_publishing_limit:
             return True
         return False
@@ -77,20 +81,35 @@ class NaiveSourcer:
         article_cluster_gen = ArticleClusterGenerator(self.article_inventory)
         return article_cluster_gen.generate_clusters()
 
-    def generate_sourced_articles(self, clustered_articles: list[list[RawArticle]]) -> None:
+    def generate_sourced_articles(
+        self, clustered_articles: list[list[RawArticle]], sourcing_run_id: str
+    ) -> None:
         """This generates the sourced articles from the clusters of articles."""
-        self.sourced_articles: list[SourcedArticle] = []
+        self.sourced_articles = []
         for article_cluster in clustered_articles:
+            if len(self.sourced_articles) >= self.top_k:
+                logger.info(
+                    f"Reached top_k limit of {self.top_k} sourced articles. Breaking out of sourcing loop."
+                )
+                break
             sourced_article = SourcedArticle(
                 article_cluster,
                 self.sourcing_date_str,
                 self.topic_id,
                 self.topic,
                 self.category,
+                sourcing_run_id,
                 self.s3_client,
+            )
+            article_processing_cost = sourced_article.process_article()
+            logger.info(
+                f"Sourced article with id {sourced_article.sourced_article_id} had total processing cost: {article_processing_cost}"
             )
             # TODO - do rest of ops like uniqueness etc.
             self.sourced_articles.append(sourced_article)
+        logger.info(
+            f"Generated {len(self.sourced_articles)} sourced articles. Requested top_k: {self.top_k}"
+        )
 
     def _get_sorting_lambda(self, sorting: str) -> Any:
         if sorting == RELEVANCE_SORTING_STR:
@@ -114,7 +133,7 @@ class NaiveSourcer:
         (TODO - should we only mark as sourced those which we took? or even those we considered?)
         The articles will be sorted by the sorting criteria defined in the sourcer (self.sourcing).
         """
-        self.article_inventory: list[SourcedArticle] = []
+        self.article_inventory = []
         kwargs = {"s3_client": self.s3_client, "publishing_date": self.sourcing_date}
         # take only articles that have not been sourced yet
         articles = self.candidate_articles.load_articles(
@@ -138,7 +157,7 @@ class NaiveSourcer:
         logger.info(
             f"Sorting {len(self.article_inventory)} articles in inventory by {self.sorting}"
         )
-        sourcing_func, sorting_lambda = self._get_sourcing_func(self.sorting)  # type: ignore
+        sourcing_func, sorting_lambda = self._get_sourcing_func(self.sorting)
         self.article_inventory = sourcing_func(
             len(self.article_inventory), self.article_inventory, key=sorting_lambda
         )
@@ -159,9 +178,14 @@ class NaiveSourcer:
             logger.info("Populating article inventory first since it is empty")
             self.populate_article_inventory()
         clustered_articles: list[list[RawArticle]] = self.cluster_articles()
-        self.generate_sourced_articles(clustered_articles)
+        self.generate_sourced_articles(clustered_articles, sourcing_run_id)
         return self.sourced_articles
 
     def store_articles(self) -> None:
         for sourced_article in self.sourced_articles:
             sourced_article.store_article()
+        logger.info(
+            f"Sourced articles stored for topic {self.topic_id}. Will mark articles considered as sourced in candidate articles."
+        )
+        kwargs = {"s3_client": self.s3_client, "articles": self.article_inventory}
+        self.candidate_articles.mark_articles_sourced(**kwargs)

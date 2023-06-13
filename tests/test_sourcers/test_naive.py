@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, Dict, List
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
@@ -40,8 +40,8 @@ TEST_CATEGORY_1 = "category_1"
 TEST_CATEGORY_2 = "category_2"
 TEST_PUBLISHING_DAILY_LIMIT_1 = 10
 TEST_TOP_K = 5
-TEST_ARTICLE_METADATA = dict()
-TEST_ARTICLE_TAGS = dict()
+TEST_ARTICLE_METADATA: dict[str, str] = dict()
+TEST_ARTICLE_TAGS: dict[str, str] = dict()
 
 
 def test_naive_sourcer_init():

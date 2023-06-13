@@ -23,7 +23,10 @@ from news_aggregator_data_access_layer.config import (
     SOURCED_ARTICLES_S3_BUCKET,
 )
 from news_aggregator_data_access_layer.constants import SummarizationLength
-from news_aggregator_data_access_layer.models.dynamodb import SourcedArticles
+from news_aggregator_data_access_layer.models.dynamodb import (
+    SourcedArticles,
+    get_current_dt_utc_attribute,
+)
 from news_aggregator_data_access_layer.utils.s3 import (
     dt_to_lexicographic_dash_s3_prefix,
     dt_to_lexicographic_date_s3_prefix,
@@ -34,6 +37,7 @@ from news_aggregator_data_access_layer.utils.s3 import (
     store_success_file,
     success_file_exists_at_prefix,
 )
+from pydantic import BaseModel
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from tenacity import retry, stop_after_attempt, wait_random_exponential
@@ -56,6 +60,7 @@ from news_aggregator_service.constants import (
     SHORT_SUMMARY_DEFINITION,
     SUMMARIZATION_FAILURE_MESSAGE,
     SUMMARIZATION_TEMPLATE,
+    TITLE_REWRITE_TEMPLATE,
 )
 from news_aggregator_service.exceptions import ArticleSummarizationFailure
 from news_aggregator_service.utils.secrets import get_secret
@@ -88,6 +93,19 @@ else:
         huggingface_api_key = FAKE_HUGGINGFACE_API_KEY
 
 
+class SourcedArticleRef(BaseModel):
+    article_id: str
+    article_title: str
+    article_dt_published: str
+    article_topic_id: str
+    article_topic: str
+    article_requested_category: str
+    source_article_ids: list[str]
+    source_article_urls: list[str]
+    source_article_provider_domains: list[str]
+    source_article_titles: list[str]
+
+
 class SourcedArticle:
     def __init__(
         self,
@@ -96,6 +114,7 @@ class SourcedArticle:
         topic_id: str,
         topic: str,
         requested_category: str,
+        sourcing_run_id: str,
         s3_client: boto3.client = boto3.client(
             service_name="s3", region_name=REGION_NAME, endpoint_url=S3_ENDPOINT_URL
         ),
@@ -113,12 +132,18 @@ class SourcedArticle:
         logger.info(
             f"Computed Sourced article published dt will be {self.sourced_article_published_dt} as the min of {self.article_cluster_dts_published}"
         )
-        self.source_article_ids = [article.article_id for article in article_cluster]
+        self.source_article_ids = [article.article_id for article in self.article_cluster]
+        self.source_article_urls = [article.url for article in self.article_cluster]
+        self.source_article_provider_domains = [
+            article.provider_domain for article in self.article_cluster
+        ]
+        self.source_article_titles = [article.title for article in self.article_cluster]
         self.sourced_article_id = f"{dt_to_lexicographic_dash_s3_prefix(self.sourced_article_published_dt)}#{str(uuid.uuid4())}"  # TODO - change
         self.publishing_date_str = publishing_date_str
         self.topic_id = topic_id
         self.topic = topic
         self.requested_category = requested_category
+        self.sourcing_run_id = sourcing_run_id
         self.s3_client = s3_client
         self.sourced_candidate_articles_s3_extension = ".json"
         self.summary_s3_extension = ".txt"
@@ -127,6 +152,7 @@ class SourcedArticle:
         self.is_processed = False
         self.text_chunk_token_length = 250
         self.text_chunk_token_overlap = 0
+        self.title: str = ""
         self.full_article_summary: Optional[str] = None
         self.medium_article_summary: Optional[str] = None
         self.short_article_summary: Optional[str] = None
@@ -181,38 +207,54 @@ class SourcedArticle:
             refine_prompt=self._refine_rewrite_refine_step_prompt_template,
         )
         # TODO - add others
+        # title
+        title_rewrite_template = TITLE_REWRITE_TEMPLATE.replace("####topic####", self.topic)
+        self._title_rewrite_prompt_template = PromptTemplate(
+            template=title_rewrite_template,
+            input_variables=["text"],
+        )
+        self._title_generation_stuff_chain = load_summarize_chain(
+            summarization_open_ai,
+            chain_type="stuff",
+            prompt=self._title_rewrite_prompt_template,
+        )
 
     def _get_sourced_candidates_s3_object_prefix(self) -> str:
-        return f"sourced_candidate_articles/{self.publishing_date_str}/{self.topic_id}"
+        return f"sourced_candidate_articles/{self.publishing_date_str}/{self.topic_id}/{self.sourced_article_id}"
 
     def _get_sourced_candidate_article_s3_object_key(self) -> str:
-        # TODO -
-        return f"{self._get_sourced_candidates_s3_object_prefix()}/{self.original_article_id}{self.sourced_candidate_articles_s3_extension}"
+        return f"{self._get_sourced_candidates_s3_object_prefix()}/{self.sourced_article_id}{self.sourced_candidate_articles_s3_extension}"
 
     def _get_sourced_candidate_article_summary_s3_object_key(
         self, summarization_length: SummarizationLength
     ) -> str:
         return f"{self._get_sourced_candidates_s3_object_prefix()}/{summarization_length.value}{self.summarization_suffix}{self.summary_s3_extension}"
 
-    def process_article(self) -> None:
-        logger.info(
-            f"Processing article with original {self.original_article_id} and sourced article id {self.sourced_article_id}"
-        )
+    def process_article(self) -> float:
+        logger.info(f"Processing article with sourced article id {self.sourced_article_id}")
+        article_processing_cost = 0.0
+        self.title, cost = self._generate_article_title()
+        article_processing_cost += cost
         # create article summaries
-        self.full_article_summary = self._summarize_article(
+        self.full_article_summary, cost = self._summarize_article(
             summarization_length=SummarizationLength.FULL
         )
-        self.medium_article_summary = self._summarize_article(
+        article_processing_cost += cost
+        self.medium_article_summary, cost = self._summarize_article(
             summarization_length=SummarizationLength.MEDIUM
         )
-        self.short_article_summary = self._summarize_article(
+        article_processing_cost += cost
+        self.short_article_summary, cost = self._summarize_article(
             summarization_length=SummarizationLength.SHORT
         )
+        article_processing_cost += cost
+        # TODO -
         # create embedding?
-        # find out clustered topic?
+        # find out clustered topic using BertTopic?
         # find out sentiment?
         # More?
         self.is_processed = True
+        return article_processing_cost
 
     def store_article(self):
         logger.info(f"Storing article {self.sourced_article_id}")
@@ -235,11 +277,22 @@ class SourcedArticle:
         full_summary_key = self._get_sourced_candidate_article_summary_s3_object_key(
             SummarizationLength.FULL
         )
-        # TODO - might want to create a model for sourced articles to add additional context
+        source_article_ref = SourcedArticleRef(
+            article_id=self.sourced_article_id,
+            article_title=self.title,
+            article_dt_published=self.sourced_article_published_dt.isoformat(),
+            article_topic_id=self.topic_id,
+            article_topic=self.topic,
+            article_requested_category=self.requested_category,
+            source_article_ids=self.source_article_ids,
+            source_article_urls=self.source_article_urls,
+            source_article_provider_domains=self.source_article_provider_domains,
+            source_article_titles=self.source_article_titles,
+        )
         store_object_in_s3(
             SOURCED_ARTICLES_S3_BUCKET,
             article_key,
-            self.raw_article.json(),
+            source_article_ref.json(),
             s3_client=self.s3_client,
         )
         # TODO - might need to add content-type
@@ -270,21 +323,25 @@ class SourcedArticle:
         # TODO - store in dynamodb - this might need to be revisited
         # TODO - should the title be retwritten? probably
         db_sourced_article = SourcedArticles(
-            self.topic_requested_category,
-            self.sourced_article_id,
-            dt_published=datetime.fromisoformat(self.raw_article.dt_published),
-            title=self.raw_article.title,
-            topic=self.raw_article.topic,
-            category=self.raw_article.category,
-            original_article_id=self.original_article_id,
+            topic_id=self.topic_id,
+            sourced_article_id=self.sourced_article_id,
+            dt_sourced=get_current_dt_utc_attribute(),
+            dt_published=self.sourced_article_published_dt,
+            date_published=self.publishing_date_str,
+            title=self.title,
+            topic=self.topic,
+            source_article_ids=set(self.source_article_ids),
+            source_article_urls=set(self.source_article_urls),
+            providers=set(self.source_article_provider_domains),
             short_summary_ref=short_summary_key,
             medium_summary_ref=medium_summary_key,
             full_summary_ref=full_summary_key,
+            sourcing_run_id=self.sourcing_run_id,
         )
         logger.info(
-            f"Saving sourced article for partition key {self.topic_requested_category} and range key {self.sourced_article_id} to dynamodb..."
+            f"Saving sourced article for partition key {self.topic_id} and range key {self.sourced_article_id} to dynamodb..."
         )
-        db_sourced_article.save(condition=SourcedArticles.article_id.does_not_exist())
+        db_sourced_article.save(condition=SourcedArticles.sourced_article_id.does_not_exist())
 
     def _chunk_text_in_docs(self, article_cluster_texts: list[str]) -> list[Document]:
         docs: list[Document] = []
@@ -310,7 +367,27 @@ class SourcedArticle:
             docs.append(doc)
         return docs
 
-    def _summarize_article(self, summarization_length: SummarizationLength) -> str:
+    def _generate_article_title(self) -> tuple[str, float]:
+        docs: list[Document] = [
+            Document(page_content=title) for title in self.source_article_titles
+        ]
+        chain = self._title_generation_stuff_chain
+        logger.info(
+            f"Generating article title for {self.sourced_article_id} using chain {type(chain)}..."
+        )
+        with get_openai_callback() as cb:
+            response = chain.run(docs)
+            title = response
+            # NOTE - the title is wrapped in quotes for some reason so we remove them
+            if title.startswith('"') and title.endswith('"'):
+                title = title[1:-1]
+            # TODO - emit metrics
+            logger.info(
+                f"Title generation chain has total cost {cb.total_cost}. Total tokens: {cb.total_tokens}; prompt tokens {cb.prompt_tokens}; completion tokens {cb.completion_tokens}; title character length {len(title)}."
+            )
+            return title, float(cb.total_cost)
+
+    def _summarize_article(self, summarization_length: SummarizationLength) -> tuple[str, float]:
         article_cluster_texts = [article.get_article_text() for article in self.article_cluster]
         if summarization_length == SummarizationLength.FULL:
             # simply rewrite the article instead of summarizing
@@ -328,7 +405,7 @@ class SourcedArticle:
                     self.sourced_article_id,
                     "Full article summary is empty. Cannot produce medium summary.",
                 )
-            docs: list[Document] = [Document(page_content=self.full_article_summary)]
+            docs = [Document(page_content=self.full_article_summary)]
         elif summarization_length == SummarizationLength.SHORT:
             chain = self._short_summarization_stuff_llm_chain
             if not self.full_article_summary:
@@ -336,7 +413,7 @@ class SourcedArticle:
                     self.sourced_article_id,
                     "Full article summary is empty. Cannot produce short summary.",
                 )
-            docs: list[Document] = [Document(page_content=self.full_article_summary)]
+            docs = [Document(page_content=self.full_article_summary)]
         else:
             raise ValueError(f"Invalid summarization length {summarization_length.value}")
         logger.info(
@@ -349,7 +426,7 @@ class SourcedArticle:
             logger.info(
                 f"Summary chain for summarization length {summarization_length.value} has total cost {cb.total_cost}. Total tokens: {cb.total_tokens}; prompt tokens {cb.prompt_tokens}; completion tokens {cb.completion_tokens}; summary character length {len(summary)}."
             )
-            return summary
+            return summary, float(cb.total_cost)
 
 
 class ArticleClusterGenerator:
@@ -379,7 +456,7 @@ class ArticleClusterGenerator:
         self.__log_cluster_stats(self.clustered_articles)
         return self.clustered_articles
 
-    def __log_cluster_stats(self, clustered_articles: list[list[RawArticle]]):
+    def __log_cluster_stats(self, clustered_articles: list[list[RawArticle]]) -> None:
         logger.info(f"Generated {len(clustered_articles)} clusters.")
         for cluster in clustered_articles:
             logger.info("==============Cluster==============\n")
@@ -390,7 +467,7 @@ class ArticleClusterGenerator:
     def _group_articles_by_cluster(
         self, articles: list[RawArticle], labels: list[int], n_clusters: int
     ) -> list[list[RawArticle]]:
-        result = []
+        result: list[list[RawArticle]] = []
         for i in range(n_clusters):
             result.append([])
         for cluster_idx, article in zip(labels, articles):
@@ -398,8 +475,8 @@ class ArticleClusterGenerator:
         return result
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
-    def _generate_embeddings(self, docs: list[str]) -> list[float]:
-        embedding_model = HuggingFaceHubEmbeddings(
+    def _generate_embeddings(self, docs: list[str]) -> list[list[float]]:
+        embedding_model = HuggingFaceHubEmbeddings(  # type: ignore
             repo_id=self._embedding_model_name,
             task="feature-extraction",
             huggingfacehub_api_token=huggingface_api_key,

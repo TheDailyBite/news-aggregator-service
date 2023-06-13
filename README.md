@@ -85,7 +85,19 @@ event = {
 }
 aggregate_news(event, None)
 ```
-7. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-candidate-articles-dev` bucket. The aggregation run will show all prefixes where data was stored in s3 in the `aggregated_articles_ref` attribute.
+8. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-candidate-articles-dev` bucket. The aggregation run will show all prefixes where data was stored in s3 in the `aggregated_articles_ref` attribute.
+- NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
+9. Sourcing Articles for a given topic/date
+```python
+sourcing_date = datetime(2023, 6, 7, tzinfo=timezone.utc)
+event = {
+  "topic_id": topic_id,
+  "sourcing_date": sourcing_date.isoformat(),
+  "daily_sourcing_frequency": "2.5"
+}
+response = source_articles(event, None)
+```
+10. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-sourced-articles-dev` bucket for the specified topic_id and publishing_date. See also in dynamodb in the `sourced-articles-dev` table.
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
 
 
