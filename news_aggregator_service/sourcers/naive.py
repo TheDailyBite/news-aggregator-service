@@ -18,7 +18,11 @@ from news_aggregator_data_access_layer.constants import (
     AggregatorRunStatus,
     ResultRefTypes,
 )
-from news_aggregator_data_access_layer.models.dynamodb import AggregatorRuns, get_uuid4_attribute
+from news_aggregator_data_access_layer.models.dynamodb import (
+    AggregatorRuns,
+    SourcedArticles,
+    get_uuid4_attribute,
+)
 from news_aggregator_data_access_layer.utils.s3 import dt_to_lexicographic_date_s3_prefix
 
 from news_aggregator_service.config import SOURCING_DEFAULT_TOP_K
@@ -60,16 +64,33 @@ class NaiveSourcer:
 
     def is_daily_publishing_limit_for_topic_reached(self) -> bool:
         """This checks if the daily publishing limit for the topic is reached"""
+        published_articles_on_date_count = 0
+        published_articles = SourcedArticles.lsi_1.query(self.topic_id, self.sourcing_date_str)
+        for _ in published_articles:
+            published_articles_on_date_count += 1
+        if published_articles_on_date_count >= self.daily_publishing_limit:
+            return True
         return False
 
-    def cluster_articles(self) -> None:
+    def cluster_articles(self) -> list[list[RawArticle]]:
         """This clusters the articles in the article inventory into clusters of similar articles."""
+        article_cluster_gen = ArticleClusterGenerator(self.article_inventory)
+        return article_cluster_gen.generate_clusters()
 
-        pass
-
-    def generate_sourced_articles(self) -> list[SourcedArticle]:
+    def generate_sourced_articles(self, clustered_articles: list[list[RawArticle]]) -> None:
         """This generates the sourced articles from the clusters of articles."""
-        pass
+        self.sourced_articles: list[SourcedArticle] = []
+        for article_cluster in clustered_articles:
+            sourced_article = SourcedArticle(
+                article_cluster,
+                self.sourcing_date_str,
+                self.topic_id,
+                self.topic,
+                self.category,
+                self.s3_client,
+            )
+            # TODO - do rest of ops like uniqueness etc.
+            self.sourced_articles.append(sourced_article)
 
     def _get_sorting_lambda(self, sorting: str) -> Any:
         if sorting == RELEVANCE_SORTING_STR:
@@ -96,11 +117,16 @@ class NaiveSourcer:
         self.article_inventory: list[SourcedArticle] = []
         kwargs = {"s3_client": self.s3_client, "publishing_date": self.sourcing_date}
         # take only articles that have not been sourced yet
-        articles = candidate_articles.load_articles(
-            tag_filter_key=candidate_articles.is_sourced_article_tag_key,
+        articles = self.candidate_articles.load_articles(
+            tag_filter_key=self.candidate_articles.is_sourced_article_tag_key,
             tag_filter_value=ARTICLE_NOT_SOURCED_TAGS_FLAG,
             **kwargs,
         )
+        if not articles[0]:
+            logger.info(
+                f"No articles found for topic {self.topic_id} on date {self.sourcing_date_str}"
+            )
+            return
         raw_articles, raw_articles_metadata, raw_articles_tags = (
             [a[i] for a in articles] for i in range(3)
         )
@@ -129,14 +155,13 @@ class NaiveSourcer:
         if self.is_daily_publishing_limit_for_topic_reached() is True:
             logger.info(f"Daily publishing limit reached for topic {self.topic_id}.")
             # TODO - emit metric
-
         if not self.article_inventory:
             logger.info("Populating article inventory first since it is empty")
             self.populate_article_inventory()
-        self.cluster_articles()
-        self.sourced_articles = self.generate_sourced_articles()
+        clustered_articles: list[list[RawArticle]] = self.cluster_articles()
+        self.generate_sourced_articles(clustered_articles)
         return self.sourced_articles
 
-    # def store_articles(self) -> None:
-    #     for sourced_article in self.sourced_articles:
-    #         sourced_article.store_article()
+    def store_articles(self) -> None:
+        for sourced_article in self.sourced_articles:
+            sourced_article.store_article()

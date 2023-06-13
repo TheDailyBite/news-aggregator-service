@@ -138,7 +138,12 @@ def test_naive_sourcer_populate_article_inventory_relevance_sorting():
         raw_articles = [raw_article_1, raw_article_2, raw_article_3]
         articles_metadata = [TEST_ARTICLE_METADATA, TEST_ARTICLE_METADATA, TEST_ARTICLE_METADATA]
         articles_tags = [TEST_ARTICLE_TAGS, TEST_ARTICLE_TAGS, TEST_ARTICLE_TAGS]
-        mock_load_articles.return_value = (raw_articles, articles_metadata, articles_tags)
+        mock_load_articles.return_value = [
+            (raw_article, article_metadata, article_tag)
+            for raw_article, article_metadata, article_tag in zip(
+                raw_articles, articles_metadata, articles_tags
+            )
+        ]
         naive_sourcer.populate_article_inventory()
         assert naive_sourcer.article_inventory == [raw_article_2, raw_article_1, raw_article_3]
 
@@ -195,7 +200,12 @@ def test_naive_sourcer_populate_article_inventory_date_sorting():
         raw_articles = [raw_article_1, raw_article_2, raw_article_3]
         articles_metadata = [TEST_ARTICLE_METADATA, TEST_ARTICLE_METADATA, TEST_ARTICLE_METADATA]
         articles_tags = [TEST_ARTICLE_TAGS, TEST_ARTICLE_TAGS, TEST_ARTICLE_TAGS]
-        mock_load_articles.return_value = (raw_articles, articles_metadata, articles_tags)
+        mock_load_articles.return_value = [
+            (raw_article, article_metadata, article_tag)
+            for raw_article, article_metadata, article_tag in zip(
+                raw_articles, articles_metadata, articles_tags
+            )
+        ]
         naive_sourcer.populate_article_inventory()
         assert naive_sourcer.article_inventory == [raw_article_1, raw_article_2, raw_article_3]
 
