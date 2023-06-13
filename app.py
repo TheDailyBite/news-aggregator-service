@@ -1,5 +1,6 @@
 from typing import List, Set
 
+import math
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
@@ -116,41 +117,56 @@ def aggregate_news(event, context):
         return {"statusCode": 500, "body": {"error": str(e)}}
 
 
-# def source_articles(event, context):
-#     try:
-#         # TODO - we'll probably have a queue of topic id + aggregator id + aggregation_data_start_dt messages to aggregate
-#         # and pull from that queue here
-#         # we can also add an aggregator_id field and then fetch the aggregator class
-#         topic_id = event.get("topic_id", "")
-#         if not topic_id:
-#             raise ValueError("topic_id must be specified")
-#         top_k = event.get("top_k", "")
-#         if not top_k:
-#             raise ValueError("top_k must be specified")
-#         top_k = int(top_k)
-#         news_topic = NewsTopics.get(topic_id)
-#         if not news_topic:
-#             raise ValueError(f"News Topic with id {topic_id} does not exist")
-#         if news_topic.is_active is False:
-#             raise ValueError(f"News Topic with id {topic_id} is not active")
-#         logger.info(f"Sourcing articles for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category})")
-#         naive_sourcer = NaiveSourcer(topic_id, top_k)
-#         sourced_articles = naive_sourcer.source_articles()
-#         naive_sourcer.store_articles()
-#         results = "sourced results"
-#         return {"statusCode": 200, "body": {"results": results}}
-#     except ValueError as ve:
-#         logger.error(
-#             f"Failed to source topic id {topic_id} for top k {top_k} with error: {ve}",
-#             exc_info=True,
-#         )
-#         return {"statusCode": 400, "body": {"error": str(ve)}}
-#     except Exception as e:
-#         logger.error(
-#             f"Failed to source topic id {topic_id} for top k {top_k} with error: {e}",
-#             exc_info=True,
-#         )
-#         return {"statusCode": 500, "body": {"error": str(e)}}
+def source_articles(event, context):
+    try:
+        # TODO - we'll probably have a queue of topic id + aggregator id + aggregation_data_start_dt messages to aggregate
+        # and pull from that queue here
+        # we can also add an aggregator_id field and then fetch the aggregator class
+        topic_id = event.get("topic_id", "")
+        if not topic_id:
+            raise ValueError("topic_id must be specified")
+        sourcing_date = event.get("sourcing_date")
+        if not sourcing_date:
+            raise ValueError("sourcing_date must be specified")
+        sourcing_date = datetime.fromisoformat(sourcing_date)
+        daily_sourcing_frequency = event.get("daily_sourcing_frequency")
+        if not daily_sourcing_frequency:
+            raise ValueError("daily_sourcing_frequency must be specified")
+        daily_sourcing_frequency = float(daily_sourcing_frequency)
+        news_topic = NewsTopics.get(topic_id)
+        if not news_topic:
+            raise ValueError(f"News Topic with id {topic_id} does not exist")
+        if news_topic.is_active is False:
+            raise ValueError(f"News Topic with id {topic_id} is not active")
+        daily_publishing_limit = news_topic.daily_publishing_limit
+        top_k = math.ceil(float(daily_publishing_limit) / daily_sourcing_frequency)
+        logger.info(
+            f"Sourcing news for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Top k {top_k}."
+        )
+        naive_sourcer = NaiveSourcer(
+            topic_id,
+            news_topic.topic,
+            news_topic.category,
+            top_k,
+            sourcing_date,
+            daily_publishing_limit,
+        )
+        sourced_articles = naive_sourcer.source_articles()
+        naive_sourcer.store_articles()
+        results = [sourced_article.sourced_article_id for sourced_article in sourced_articles]
+        return {"statusCode": 200, "body": {"results": results}}
+    except ValueError as ve:
+        logger.error(
+            f"Failed to source topic id {topic_id} for top k {top_k} with error: {ve}",
+            exc_info=True,
+        )
+        return {"statusCode": 400, "body": {"error": str(ve)}}
+    except Exception as e:
+        logger.error(
+            f"Failed to source topic id {topic_id} for top k {top_k} with error: {e}",
+            exc_info=True,
+        )
+        return {"statusCode": 500, "body": {"error": str(e)}}
 
 
 def news_topic_exists(topic: str, category: str) -> bool:

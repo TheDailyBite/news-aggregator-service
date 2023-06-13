@@ -2,18 +2,78 @@ from news_aggregator_data_access_layer.constants import ALL_CATEGORIES_STR
 
 # TODO - move to app config
 SUMMARIZATION_FAILURE_MESSAGE = "Summarization failed."
-SUMMARIZATION_TEMPLATE = """You are a world class news reporter, who is known for writing unbiased, informative, and entertaining articles. Your task is to summarize news articles.
-            You will summarize the article in one of the following requested summarization lengths: medium, short.
-            A medium summarization is 50% of full length of the original article (or at most 1000 words, whichever is less).
-            A short summarization is 10% of full length of the original article (or at most 200 words, whichever is less).
-            You will be provided the query that was used to discover the article for additional context.
-            If you are unable to access the article or don't feel confident about the result of your summarization you must answer {failure_message}.
-            You are given the following article from URL to summarize:
-            Article URL: {url}
-            Requested summarization length: {length}
-            Query: {query}
-            After the summarization, please also include the requested summarization length (in this format: "Requested Summarization Length=") and the full words length of the original article (in this format: "Original Article Length=").
-            Summary:"""
+ARTICLE_SEPARATOR = "===================="
+MEDIUM_SUMMARY_DEFINITION = "The summary should be a medium length summary. A medium length summary is between 300-600 words."
+SHORT_SUMMARY_DEFINITION = (
+    "The summary should be a short length summary. A short length summary is between 150-200 words."
+)
+# article rewrite
+NEWS_REPORTED_INTRO = "You are a world class news reporter, who is known for writing unbiased, informative, and entertaining articles in the ####topic#### space. "
+REFINE_REWRITE_PROMPT_TEMPLATE = (
+    NEWS_REPORTED_INTRO
+    + """
+    Your task is to rewrite a news article to ensure that it is unbiased and objective.
+
+    "{text}"
+
+    REWRITE:"""
+)
+REFINE_REWRITE_REFINE_STEP_TEMPLATE = (
+    NEWS_REPORTED_INTRO
+    + """
+    Your task is to produce a final rewritten news article to ensure that it is unbiased and objective.
+    We have provided an existing rewritten article: {existing_answer}
+    We have the opportunity to refine the existing rewritten news article (only if needed) with some more context from other news articles covering the same topic below.
+
+    "{text}"
+    
+    Given the new context, refine the original rewritten news article.
+    If the context isn't useful, return the original rewritten news article.
+    REWRITE:"""
+)
+# title rewrite
+TITLE_REWRITE_TEMPLATE = (
+    NEWS_REPORTED_INTRO
+    + """
+    Your task is to write an attention grabbing title for a news article based on existing titles for articles covering the same topic that you can use as reference in helping you write this new title.
+    The title should be between 5-20 words.
+
+    "{text}"
+
+    TITLE:"""
+)
+# summary
+SUMMARIZATION_TEMPLATE = (
+    NEWS_REPORTED_INTRO
+    + """
+    Your task is to create a summary for a news article to ensure that it is unbiased and objective.
+    ####summary_definition####
+
+    "{text}"
+
+    SUMMARY:"""
+)
+# TODO - can probably remove these
+MAP_SUMMARIZATION_TEMPLATE = (
+    NEWS_REPORTED_INTRO
+    + """
+            Your task is to create a summary for a news article to ensure that it is unbiased and objective.
+            ####summary_definition####
+
+            "{text}"
+
+            SUMMARY:"""
+)
+COMBINE_SUMMARIZATION_TEMPLATE = (
+    NEWS_REPORTED_INTRO
+    + """
+            Your task is to create a summary for a news article to ensure that it is unbiased and objective. 
+            ####summary_definition####
+
+            "{text}"
+
+            SUMMARY:"""
+)
 # NOTE - in the future the template should probably take multiple articles in and aggregate them into a single summary.
 BING_NEWS_PUBLISHED_DATE_REGEX = (
     r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{7}Z)$"
