@@ -54,7 +54,6 @@ services:
       REGION_NAME: "us-west-1"      
       DYNAMODB_HOST: "http://dynamodb-local:8000"
       S3_ENDPOINT_URL: "http://s3-local:9000"
-      SOURCING_DEFAULT_TOP_K: 1
       
     env_file:
       - secret-envs.env

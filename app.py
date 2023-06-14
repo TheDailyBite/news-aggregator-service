@@ -65,6 +65,22 @@ def update_news_topic_last_aggregation_dts(
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
 
 
+def aggregation_scheduler(event, context):
+    return {"statusCode": 200, "body": "Hello World from Aggregation!"}
+
+
+def sourcing_scheduler(event, context):
+    return {"statusCode": 200, "body": "Hello World from Sourcing!"}
+
+
+def aggregate_news_topic(event, context):
+    return {"statusCode": 200, "body": event}
+
+
+def source_news_topic(event, context):
+    return {"statusCode": 200, "body": event}
+
+
 def aggregate_news(event, context):
     try:
         # TODO - we'll probably have a queue of topic id + aggregator id + aggregation_data_start_dt messages to aggregate
@@ -153,6 +169,11 @@ def source_articles(event, context):
         )
         sourced_articles = naive_sourcer.source_articles()
         naive_sourcer.store_articles()
+        news_topic.update(
+            actions=[
+                NewsTopics.last_publishing_date.set(sourcing_date),
+            ]
+        )
         results = [sourced_article.sourced_article_id for sourced_article in sourced_articles]
         return {"statusCode": 200, "body": {"results": results}}
     except ValueError as ve:

@@ -26,7 +26,6 @@ from news_aggregator_data_access_layer.models.dynamodb import (
 )
 from news_aggregator_data_access_layer.utils.s3 import dt_to_lexicographic_date_s3_prefix
 
-from news_aggregator_service.config import SOURCING_DEFAULT_TOP_K
 from news_aggregator_service.sourcers.models.sourced_articles import (
     ArticleClusterGenerator,
     SourcedArticle,
