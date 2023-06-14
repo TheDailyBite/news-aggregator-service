@@ -39,10 +39,10 @@ REQUESTS_SLEEP_TIME_S = 1
 DEFAULT_LOGGER_NAME = "news_aggregator_service"
 LOCAL_TESTING = os.environ.get("LOCAL_TESTING", "false").lower() in ["true"]
 DEFAULT_NAMESPACE = os.environ.get("DEFAULT_NAMESPACE", "NewsAggregatorService")
+MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE = int(os.environ.get("MINIMUM_ARTICLE_INVENTORY_SIZE", 5))
 SUMMARIZATION_MODEL_NAME = os.environ.get("SUMMARIZATION_MODEL_NAME", "gpt-3.5-turbo")
 # TODO - what should this be?
 SUMMARIZATION_TEMPERATURE = float(os.environ.get("SUMMARIZATION_TEMPERATURE", 0.0))
-
 ARTICLE_CLUSTERING_MODEL_NAME = os.environ.get("CLUSTERING_MODEL_NAME", "gpt-3.5-turbo")
 ARTICLE_CLUSTERING_TEMPERATURE = float(os.environ.get("CLUSTERING_TEMPERATURE", 0.0))
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

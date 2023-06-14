@@ -168,6 +168,11 @@ def source_articles(event, context):
             daily_publishing_limit,
         )
         sourced_articles = naive_sourcer.source_articles()
+        if not sourced_articles:
+            logger.info(
+                f"No articles found for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Top k {top_k}."
+            )
+            return {"statusCode": 200, "body": {"results": []}}
         naive_sourcer.store_articles()
         news_topic.update(
             actions=[

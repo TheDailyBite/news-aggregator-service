@@ -123,7 +123,9 @@ class SourcedArticle:
             not all(isinstance(article, RawArticle) for article in article_cluster)
             or not article_cluster
         ):
-            raise ValueError("article_cluster must be of type List[RawArticle]")
+            raise ValueError(
+                f"article_cluster must be of type List[RawArticle]; actual type {type(article_cluster)}"
+            )
         self.article_cluster = article_cluster
         self.article_cluster_dts_published = [
             datetime.fromisoformat(article.dt_published) for article in self.article_cluster
@@ -438,10 +440,8 @@ class ArticleClusterGenerator:
     def generate_clusters(self) -> list[list[RawArticle]]:
         if self.clustered_articles:
             return self.clustered_articles
-        if not self.raw_articles:
-            return []
-        if len(self.raw_articles) == 1:
-            return [[self.raw_articles]]
+        if len(self.raw_articles) <= 2:
+            return [[article] for article in self.raw_articles]
         logger.info(f"Generating clusters for {len(self.raw_articles)} articles...")
         # NOTE - given the weakness of news text generation via url it seems to be unrealiable to
         # generate embeddings with the raw article text. Instead we will use the article title which seems to perform well.

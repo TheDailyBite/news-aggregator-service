@@ -81,7 +81,7 @@ def test_naive_sourcer_populate_article_inventory_no_articles():
             daily_publishing_limit=TEST_PUBLISHING_DAILY_LIMIT_1,
             s3_client=test_s3_client,
         )
-        mock_load_articles.return_value = ([], dict(), dict())
+        mock_load_articles.return_value = []
         naive_sourcer.populate_article_inventory()
         assert naive_sourcer.article_inventory == []
 

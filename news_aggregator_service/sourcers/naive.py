@@ -13,6 +13,7 @@ from news_aggregator_data_access_layer.config import (
 )
 from news_aggregator_data_access_layer.constants import (
     ARTICLE_NOT_SOURCED_TAGS_FLAG,
+    ARTICLE_SOURCED_TAGS_FLAG,
     DATE_SORTING_STR,
     RELEVANCE_SORTING_STR,
     AggregatorRunStatus,
@@ -85,6 +86,7 @@ class NaiveSourcer:
     ) -> None:
         """This generates the sourced articles from the clusters of articles."""
         self.sourced_articles = []
+        # TODO - should we sort these by largest cluster size? that might not be a bad idea
         for article_cluster in clustered_articles:
             if len(self.sourced_articles) >= self.top_k:
                 logger.info(
@@ -140,7 +142,7 @@ class NaiveSourcer:
             tag_filter_value=ARTICLE_NOT_SOURCED_TAGS_FLAG,
             **kwargs,
         )
-        if not articles[0]:
+        if not articles:
             logger.info(
                 f"No articles found for topic {self.topic_id} on date {self.sourcing_date_str}"
             )
@@ -176,15 +178,28 @@ class NaiveSourcer:
         if not self.article_inventory:
             logger.info("Populating article inventory first since it is empty")
             self.populate_article_inventory()
+        # TODO - do we want a minumum?
+        # if len(self.article_inventory) < MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE:
+        #     logger.info(
+        #         f"Article inventory size {len(self.article_inventory)} is less than minimum article inventory size {MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE}. Sourcing will occur at a later date when more candidates are available."
+        #     )
+        #     # TODO - pubish metric
+        #     return self.sourced_articles
         clustered_articles: list[list[RawArticle]] = self.cluster_articles()
         self.generate_sourced_articles(clustered_articles, sourcing_run_id)
         return self.sourced_articles
 
     def store_articles(self) -> None:
+        if not self.sourced_articles:
+            return
         for sourced_article in self.sourced_articles:
             sourced_article.store_article()
         logger.info(
             f"Sourced articles stored for topic {self.topic_id}. Will mark articles considered as sourced in candidate articles."
         )
-        kwargs = {"s3_client": self.s3_client, "articles": self.article_inventory}
-        self.candidate_articles.mark_articles_sourced(**kwargs)
+        kwargs = {
+            "s3_client": self.s3_client,
+            "articles": self.article_inventory,
+            "updated_tag_value": ARTICLE_SOURCED_TAGS_FLAG,
+        }
+        self.candidate_articles.update_articles_is_sourced_tag(**kwargs)

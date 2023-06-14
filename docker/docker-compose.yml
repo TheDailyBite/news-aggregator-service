@@ -58,6 +58,10 @@ services:
     env_file:
       - secret-envs.env
     command: "app.aggregate_bing_news_self"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     depends_on:
       - dynamodb-local
       - s3-local    
