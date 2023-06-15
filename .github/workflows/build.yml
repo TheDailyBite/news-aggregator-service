@@ -98,11 +98,30 @@ jobs:
 
       - name: Update Lambda functions with latest ECR image
         env:
-          BING_AGGREGATOR_SELF_LAMBDA_NAME: bing-aggregate-self-lambda
+          AGGREGATION_SCHEDULER_LAMBDA_NAME: aggregation-scheduler
+          SOURCING_SCHEDULER_LAMBDA_NAME: sourcing-scheduler
+          NEWS_AGGREGATION_PROCESSOR_LAMBDA_NAME: news-aggregation-processor
+          NEWS_SOURCING_PROCESSOR_LAMBDA_NAME: news-sourcing-processor                            
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ vars.NEWS_AGGREGATOR_ECR_REPO }}
         run: |
+          echo "Updating aggregation scheduler lambda function with latest ECR image"
           aws lambda update-function-code \
-          --function-name $BING_AGGREGATOR_SELF_LAMBDA_NAME \
+          --function-name ${{ env.AGGREGATION_SCHEDULER_LAMBDA_NAME}} \
           --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} \
           --region ${{ env.AWS_REGION}}
+          echo "Updating sourcing scheduler lambda function with latest ECR image"
+          aws lambda update-function-code \
+          --function-name ${{ env.SOURCING_SCHEDULER_LAMBDA_NAME}} \
+          --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} \
+          --region ${{ env.AWS_REGION}}
+          echo "Updating news aggregation processor lambda function with latest ECR image"
+          aws lambda update-function-code \
+          --function-name ${{ env.NEWS_AGGREGATION_PROCESSOR_LAMBDA_NAME}} \
+          --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} \
+          --region ${{ env.AWS_REGION}}
+          echo "Updating news sourcing processor lambda function with latest ECR image"          
+          aws lambda update-function-code \
+          --function-name ${{ env.NEWS_SOURCING_PROCESSOR_LAMBDA_NAME}} \
+          --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} \
+          --region ${{ env.AWS_REGION}}                                        
