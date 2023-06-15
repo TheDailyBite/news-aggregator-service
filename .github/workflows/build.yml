@@ -98,10 +98,10 @@ jobs:
 
       - name: Update Lambda functions with latest ECR image
         env:
-          AGGREGATION_SCHEDULER_LAMBDA_NAME: aggregation-scheduler
-          SOURCING_SCHEDULER_LAMBDA_NAME: sourcing-scheduler
-          NEWS_AGGREGATION_PROCESSOR_LAMBDA_NAME: news-aggregation-processor
-          NEWS_SOURCING_PROCESSOR_LAMBDA_NAME: news-sourcing-processor                            
+          AGGREGATION_SCHEDULER_LAMBDA_NAME: aggregation-scheduler-lambda
+          SOURCING_SCHEDULER_LAMBDA_NAME: sourcing-scheduler-lambda
+          NEWS_AGGREGATION_PROCESSOR_LAMBDA_NAME: news-aggregation-processor-lambda
+          NEWS_SOURCING_PROCESSOR_LAMBDA_NAME: news-sourcing-processor-lambda                            
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ vars.NEWS_AGGREGATOR_ECR_REPO }}
         run: |
