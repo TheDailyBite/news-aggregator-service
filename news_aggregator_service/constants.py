@@ -1,5 +1,10 @@
 from news_aggregator_data_access_layer.constants import ALL_CATEGORIES_STR
 
+DATE_SORTING = "date"
+RELEVANCE_SORTING = "relevance"
+POPULARITY_SORTING = "popularity"
+SUPPORTED_SORTING = {DATE_SORTING, RELEVANCE_SORTING, POPULARITY_SORTING}
+
 # TODO - move to app config
 SUMMARIZATION_FAILURE_MESSAGE = "Summarization failed."
 ARTICLE_SEPARATOR = "===================="
@@ -75,6 +80,7 @@ COMBINE_SUMMARIZATION_TEMPLATE = (
             SUMMARY:"""
 )
 # NOTE - in the future the template should probably take multiple articles in and aggregate them into a single summary.
+# Bing News
 BING_NEWS_PUBLISHED_DATE_REGEX = (
     r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{7}Z)$"
 )
@@ -95,4 +101,46 @@ BING_CATEGORIES_MAPPER = {
     "world_asia": "World_Asia",
     "world_europe": "World_Europe",
     "world_middleeast": "World_MiddleEast",
+}
+# NewsApi.org
+NEWS_API_ORG_PUBLISHED_DATE_REGEX = r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)$"
+# Define the Bing category mapper.
+NEWS_API_ORG_CATEGORIES_MAPPER = {
+    ALL_CATEGORIES_STR: ALL_CATEGORIES_STR,
+    "business": None,
+    "entertainment": None,
+    "health": None,
+    "politics": None,
+    "products": None,
+    "science-and-technology": None,
+    "sports": None,
+    "us": None,
+    "world": None,
+    "world_africa": None,
+    "world_americas": None,
+    "world_asia": None,
+    "world_europe": None,
+    "world_middleeast": None,
+}
+# thenewsapi.com
+THE_NEWS_API_COM_PUBLISHED_DATE_REGEX = (
+    r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}Z)$"
+)
+# Define the Bing category mapper.
+THE_NEWS_API_COM_CATEGORIES_MAPPER = {
+    ALL_CATEGORIES_STR: ALL_CATEGORIES_STR,
+    "business": "business",
+    "entertainment": "entertainment",
+    "health": "health",
+    "politics": "politics",
+    "products": None,
+    "science-and-technology": "science,tech",
+    "sports": "sports",
+    "us": None,
+    "world": None,
+    "world_africa": None,
+    "world_americas": None,
+    "world_asia": None,
+    "world_europe": None,
+    "world_middleeast": None,
 }
