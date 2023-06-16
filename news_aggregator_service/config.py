@@ -5,6 +5,10 @@ REGION_NAME = os.environ.get("REGION_NAME", "us-west-1")
 # in production, we use the secrets manager
 BING_NEWS_API_KEY = os.environ.get("BING_NEWS_API_KEY", None)
 BING_NEWS_API_KEY_SECRET_NAME = os.environ.get("BING_NEWS_API_KEY_SECRET_NAME", "bing-search-key")
+NEWS_API_ORG_API_KEY = os.environ.get("NEWS_API_ORG_API_KEY", None)
+NEWS_API_ORG_API_KEY_SECRET_NAME = os.environ.get(
+    "NEWS_API_ORG_API_KEY_SECRET_NAME", "news-api-org-key"
+)
 FAKE_OPENAI_API_KEY = "sk-000000000000000000000000000000000000000000000000"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", None)
 OPENAI_API_KEY_SECRET_NAME = os.environ.get("OPENAI_API_KEY_SECRET_NAME", "openai-api-key")
@@ -16,8 +20,6 @@ HUGGINGFACE_API_KEY_SECRET_NAME = os.environ.get(
 FAKE_PINECONE_API_KEY = "838f27c8-96da-4afb-8474-7eb577cda375"
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", None)
 PINECONE_API_KEY_SECRET_NAME = os.environ.get("PINECONE_API_KEY_SECRET_NAME", "pinecone-api-key")
-DEFAULT_BING_SORTING = os.environ.get("DEFAULT_BING_SORTING", "Relevance")
-assert DEFAULT_BING_SORTING in ["Relevance", "Date"]
 # this is a multiplier of the max aggregation results for the number of articles to fetch for each aggregator
 # this provides a buffer before validation and filtering is applied to the aggregated articles
 AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER = int(
@@ -30,8 +32,9 @@ BING_AGGREGATOR_ID = "bingNews"
 DEFAULT_MAX_BING_AGGREGATOR_RESULTS = int(
     os.environ.get("DEFAULT_MAX_BING_AGGREGATOR_RESULTS", 100)
 )
+NEWS_API_ORG_AGGREGATOR_ID = "newsApiOrg"
 # NOTE - comma separated list
-DEFAULT_ENABLED_AGGREGATORS = f"{BING_AGGREGATOR_ID}"
+DEFAULT_ENABLED_AGGREGATORS = f"{BING_AGGREGATOR_ID},{NEWS_API_ORG_AGGREGATOR_ID}"
 ENABLED_AGGREGATORS = [
     a.strip() for a in os.environ.get("ENABLED_AGGREGATORS", DEFAULT_ENABLED_AGGREGATORS).split(",")
 ]
@@ -43,6 +46,4 @@ MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE = int(os.environ.get("MINIMUM_ARTICLE_I
 SUMMARIZATION_MODEL_NAME = os.environ.get("SUMMARIZATION_MODEL_NAME", "gpt-3.5-turbo")
 # TODO - what should this be?
 SUMMARIZATION_TEMPERATURE = float(os.environ.get("SUMMARIZATION_TEMPERATURE", 0.0))
-ARTICLE_CLUSTERING_MODEL_NAME = os.environ.get("CLUSTERING_MODEL_NAME", "gpt-3.5-turbo")
-ARTICLE_CLUSTERING_TEMPERATURE = float(os.environ.get("CLUSTERING_TEMPERATURE", 0.0))
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

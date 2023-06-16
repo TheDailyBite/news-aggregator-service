@@ -17,13 +17,19 @@ from news_aggregator_data_access_layer.models.dynamodb import (
     get_uuid4_attribute,
 )
 
-from news_aggregator_service.aggregators.news_aggregators import AggregatorInterface, BingAggregator
+from news_aggregator_service.aggregators.news_aggregators import (
+    AggregatorInterface,
+    BingAggregator,
+    NewsApiOrgAggregator,
+)
 from news_aggregator_service.config import (
     AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER,
     BING_AGGREGATOR_ID,
     DEFAULT_DAILY_PUBLISHING_LIMIT,
     ENABLED_AGGREGATORS,
+    NEWS_API_ORG_AGGREGATOR_ID,
 )
+from news_aggregator_service.exceptions import UnsupportedCategoryException
 from news_aggregator_service.sourcers.naive import NaiveSourcer
 
 create_tables()
@@ -47,6 +53,8 @@ logger = setup_logger(__name__)
 def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
     if aggregator_id == BING_AGGREGATOR_ID:
         return BingAggregator()
+    elif aggregator_id == NEWS_API_ORG_AGGREGATOR_ID:
+        return NewsApiOrgAggregator()
     else:
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
 
@@ -59,6 +67,13 @@ def update_news_topic_last_aggregation_dts(
             actions=[
                 NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
                 NewsTopics.bing_aggregation_last_end_time.set(aggregation_data_end_dt),
+            ]
+        )
+    elif aggregator_id == NEWS_API_ORG_AGGREGATOR_ID:
+        news_topic.update(
+            actions=[
+                NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
+                NewsTopics.news_api_org_aggregation_last_end_time.set(aggregation_data_end_dt),
             ]
         )
     else:
@@ -74,10 +89,12 @@ def sourcing_scheduler(event, context):
 
 
 def aggregate_news_topic(event, context):
+    logger.info(f"Received event: {event}")
     return {"statusCode": 200, "body": event}
 
 
 def source_news_topic(event, context):
+    logger.info(f"Received event: {event}")
     return {"statusCode": 200, "body": event}
 
 
@@ -106,16 +123,22 @@ def aggregate_news(event, context):
         )
         trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
         aggregator = fetch_aggregator(aggregator_id)
-        aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
-            news_topic.topic_id,
-            news_topic.topic,
-            news_topic.category,
-            aggregation_data_start_dt,
-            aggregation_data_end_dt,
-            max_aggregator_results,
-            fetched_articles_count,
-            trusted_news_providers,
-        )
+        try:
+            aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
+                news_topic.topic_id,
+                news_topic.topic,
+                news_topic.category,
+                aggregation_data_start_dt,
+                aggregation_data_end_dt,
+                max_aggregator_results,
+                fetched_articles_count,
+                trusted_news_providers,
+            )
+        except UnsupportedCategoryException as e:
+            logger.info(
+                f"Aggregator {aggregator_id} does not support category {news_topic.category}. Skipping aggregation for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category})"
+            )
+            return {"statusCode": 200, "body": {"message": str(e)}}
         update_news_topic_last_aggregation_dts(news_topic, aggregator_id, end_published_dt)
         results = aggregation_result.json()
         return {"statusCode": 200, "body": {"results": results}}
@@ -229,6 +252,7 @@ def create_news_topic(event, context):
             topic=topic,
             category=category,
             is_active=True,
+            is_published=False,
             date_created=get_current_dt_utc_attribute(),
             max_aggregator_results=max_aggregator_results,
             daily_publishing_limit=DEFAULT_DAILY_PUBLISHING_LIMIT,

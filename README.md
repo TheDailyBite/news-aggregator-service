@@ -77,11 +77,13 @@ print(f"Topic ID: {topic_id}")
 ```
 7. Once you have the news topic you wish to aggregate, you can run `aggregate_news(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
 ```python
+data_start = (datetime.now(timezone.utc) - timedelta(days=16)).isoformat()
+data_end = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
 event = {
   "topic_id": topic_id,
-  "aggregator_id": BING_AGGREGATOR_ID,
-  "aggregation_data_start_dt": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
-  "aggregation_data_end_dt": datetime.now(timezone.utc).isoformat(),
+  "aggregator_id": NEWS_API_ORG_AGGREGATOR_ID, # BING_AGGREGATOR_ID
+  "aggregation_data_start_dt": data_start,
+  "aggregation_data_end_dt": data_end,
 }
 aggregate_news(event, None)
 ```
@@ -111,19 +113,44 @@ os.environ["BING_NEWS_API_KEY"] = "<value>"
 ```
 Then run the following to test getting articles for a topic:
 ```python
+# bing
 from datetime import datetime, timedelta, timezone
 from news_aggregator_service.aggregators.news_aggregators import BingAggregator
+from news_aggregator_service.constants import (
+    DATE_SORTING,
+    POPULARITY_SORTING,
+    RELEVANCE_SORTING,
+)
 bing = BingAggregator()
 topic_id = "9910f34e-c25e-4667-8471-296f7bc60f62"
 topic = "Generative+AI"
 category = "science-and-technology"
 end_time = datetime.now(timezone.utc)
 start_time = end_time - timedelta(days=1)
-sorting = bing.sorting
+sorting = RELEVANCE_SORTING
 max_aggregator_results = 20
 fetched_articles_count = 100
 trusted_news_providers = []
 aggregated_articles, pub_start_time, pub_end_time = bing.get_candidates_for_topic(topic_id, topic, category, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
+# news api org
+from datetime import datetime, timedelta, timezone
+from news_aggregator_service.aggregators.news_aggregators import NewsApiOrgAggregator
+from news_aggregator_service.constants import (
+    DATE_SORTING,
+    POPULARITY_SORTING,
+    RELEVANCE_SORTING,
+)
+newsapiorg = NewsApiOrgAggregator()
+topic_id = "9910f34e-c25e-4667-8471-296f7bc60f62"
+topic = "Generative+AI"
+category = ""
+end_time = datetime.now(timezone.utc) - timedelta(days=2)
+start_time = end_time - timedelta(days=1)
+sorting = RELEVANCE_SORTING
+max_aggregator_results = 20
+fetched_articles_count = 100
+trusted_news_providers = []
+aggregated_articles, pub_start_time, pub_end_time = newsapiorg.get_candidates_for_topic(topic_id, topic, category, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
 ```
 
 ### Set up bots

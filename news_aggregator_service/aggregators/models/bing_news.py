@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from enum import Enum
+
 from humps import camelize, pascalize
 from pydantic import BaseModel, Field
 
@@ -22,6 +24,11 @@ class PascalModel(BaseModel):
     class Config:
         alias_generator = to_pascal
         allow_population_by_field_name = True
+
+
+class SortByEnum(str, Enum):
+    RELEVANCE = "Relevance"
+    PUBLISHED_AT = "Date"
 
 
 class Error(CamelModel):
@@ -138,18 +145,6 @@ class NewsAnswerAPIResponse(CamelModel):
     total_estimated_matches: Optional[int]
     value: list[NewsArticle]
     query_context: Optional[QueryContext]
-
-
-class SearchRequest(CamelModel):
-    q: str
-    count: Optional[int] = 10
-    offset: Optional[int] = 0
-    mkt: Optional[str] = "en-US"
-    safe_search: Optional[str] = "Moderate"
-    freshness: Optional[str] = "Day"
-    category: Optional[str]
-    original_image: Optional[bool] = False
-    text_format: Optional[str] = "Raw"
 
 
 class QueryParams(CamelModel):
