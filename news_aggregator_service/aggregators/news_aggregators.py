@@ -15,6 +15,7 @@ from news_aggregator_data_access_layer.config import S3_ENDPOINT_URL
 from news_aggregator_data_access_layer.constants import (
     ALL_CATEGORIES_STR,
     AggregatorRunStatus,
+    NewsAggregatorsEnum,
     ResultRefTypes,
 )
 from news_aggregator_data_access_layer.models.dynamodb import (
@@ -33,11 +34,9 @@ from news_aggregator_data_access_layer.utils.s3 import (
 from news_aggregator_service.aggregators.models import bing_news, news_api_org
 from news_aggregator_service.aggregators.models.aggregations import AggregationResults
 from news_aggregator_service.config import (
-    BING_AGGREGATOR_ID,
     BING_NEWS_API_KEY,
     BING_NEWS_API_KEY_SECRET_NAME,
     DEFAULT_MAX_BING_AGGREGATOR_RESULTS,
-    NEWS_API_ORG_AGGREGATOR_ID,
     NEWS_API_ORG_API_KEY,
     NEWS_API_ORG_API_KEY_SECRET_NAME,
     REGION_NAME,
@@ -95,8 +94,7 @@ class AggregatorInterface(ABC):
             raise ValueError(
                 f"max_aggregator_results must be a positive integer, got: {max_aggregator_results}"
             )
-        mapped_requested_category = self.category_mapper.get_category(category)
-        if mapped_requested_category is None:
+        if not self.is_category_supported(category):
             failure_message = (
                 f"Category {category} is not supported by aggregator {self.aggregator_id}"
             )
@@ -205,6 +203,14 @@ class AggregatorInterface(ABC):
     def sorting(self):
         pass
 
+    @property
+    @abstractmethod
+    def historical_articles_days_ago_start(self):
+        pass
+
+    def is_category_supported(self, category: str) -> bool:
+        return self.category_mapper.get_category(category) is not None
+
     def generate_article_id(
         self,
         article_idx: int,
@@ -240,7 +246,7 @@ class AggregatorInterface(ABC):
 
 class BingAggregator(AggregatorInterface):
     def __init__(self):
-        self._aggregator_id = BING_AGGREGATOR_ID
+        self._aggregator_id = NewsAggregatorsEnum.BING_NEWS.value
         self.base_url = "https://api.bing.microsoft.com"
         self.search_url = f"{self.base_url}/v7.0/news/search"
         self.api_key = self.get_api_key(BING_NEWS_API_KEY, BING_NEWS_API_KEY_SECRET_NAME)
@@ -260,6 +266,7 @@ class BingAggregator(AggregatorInterface):
             DATE_SORTING: news_api_org.SortByEnum.PUBLISHED_AT,
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
+        self._historical_articles_days_ago_start = timedelta(days=-1)
 
     @property
     def aggregator_id(self):
@@ -272,6 +279,10 @@ class BingAggregator(AggregatorInterface):
     @property
     def sorting(self):
         return self._sorting
+
+    @property
+    def historical_articles_days_ago_start(self):
+        return self._historical_articles_days_ago_start
 
     def _get_data_timeframe(self, start_time: datetime, end_time: datetime) -> str:
         timeframe_days = (end_time - start_time).days
@@ -492,7 +503,7 @@ class BingAggregator(AggregatorInterface):
 
 class NewsApiOrgAggregator(AggregatorInterface):
     def __init__(self):
-        self._aggregator_id = NEWS_API_ORG_AGGREGATOR_ID
+        self._aggregator_id = NewsAggregatorsEnum.NEWS_API_ORG.value
         self.base_url = "https://newsapi.org"
         self.search_url = f"{self.base_url}/v2/everything"
         self.api_key = self.get_api_key(NEWS_API_ORG_API_KEY, NEWS_API_ORG_API_KEY_SECRET_NAME)
@@ -512,6 +523,8 @@ class NewsApiOrgAggregator(AggregatorInterface):
             DATE_SORTING: news_api_org.SortByEnum.PUBLISHED_AT,
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
+        # TODO - this should change after upgrading to premium subscription
+        self._historical_articles_days_ago_start = timedelta(days=-30)
 
     @property
     def aggregator_id(self):
@@ -524,6 +537,10 @@ class NewsApiOrgAggregator(AggregatorInterface):
     @property
     def sorting(self):
         return self._sorting
+
+    @property
+    def historical_articles_days_ago_start(self):
+        return self._historical_articles_days_ago_start
 
     def _get_data_timeframe(self, start_time: datetime, end_time: datetime) -> tuple[str, str]:
         start_time_str = start_time.strftime(self.request_date_format)

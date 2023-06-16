@@ -41,7 +41,7 @@ tiktoken = "^0.3.3"
 huggingface_hub = "^0.15.1"
 tenacity = "^8.2.2"
 scikit-learn = "^1.2.2"
-news_aggregator_data_access_layer = { git = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git", branch = "main" }
+news_aggregator_data_access_layer = { git = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git", branch = "updates" } # TODO - update
 
 
 [tool.poetry.dev-dependencies]

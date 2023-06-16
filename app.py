@@ -1,15 +1,19 @@
-from typing import List, Set
+from typing import List, Set, Tuple
 
+import json
 import math
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
+import boto3
 from news_aggregator_data_access_layer.config import SELF_USER_ID
 from news_aggregator_data_access_layer.constants import (
     ALL_CATEGORIES_STR,
     SUPPORTED_AGGREGATION_CATEGORIES,
+    NewsAggregatorsEnum,
 )
 from news_aggregator_data_access_layer.models.dynamodb import (
+    NewsAggregators,
     NewsTopics,
     TrustedNewsProviders,
     create_tables,
@@ -24,10 +28,10 @@ from news_aggregator_service.aggregators.news_aggregators import (
 )
 from news_aggregator_service.config import (
     AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER,
-    BING_AGGREGATOR_ID,
     DEFAULT_DAILY_PUBLISHING_LIMIT,
-    ENABLED_AGGREGATORS,
-    NEWS_API_ORG_AGGREGATOR_ID,
+    LOCAL_TESTING,
+    NEWS_AGGREGATION_QUEUE_NAME,
+    NEWS_SOURCING_QUEUE_NAME,
 )
 from news_aggregator_service.exceptions import UnsupportedCategoryException
 from news_aggregator_service.sourcers.naive import NaiveSourcer
@@ -51,9 +55,9 @@ logger = setup_logger(__name__)
 
 
 def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
-    if aggregator_id == BING_AGGREGATOR_ID:
+    if aggregator_id == NewsAggregatorsEnum.BING_NEWS.value:
         return BingAggregator()
-    elif aggregator_id == NEWS_API_ORG_AGGREGATOR_ID:
+    elif aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
         return NewsApiOrgAggregator()
     else:
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
@@ -62,14 +66,14 @@ def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
 def update_news_topic_last_aggregation_dts(
     news_topic: NewsTopics, aggregator_id: str, aggregation_data_end_dt: datetime
 ) -> None:
-    if aggregator_id == BING_AGGREGATOR_ID:
+    if aggregator_id == NewsAggregatorsEnum.BING_NEWS.value:
         news_topic.update(
             actions=[
                 NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
                 NewsTopics.bing_aggregation_last_end_time.set(aggregation_data_end_dt),
             ]
         )
-    elif aggregator_id == NEWS_API_ORG_AGGREGATOR_ID:
+    elif aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
         news_topic.update(
             actions=[
                 NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
@@ -80,11 +84,88 @@ def update_news_topic_last_aggregation_dts(
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
 
 
+def get_aggregation_timeframe(news_topic: NewsTopics, aggregator_id: str) -> tuple[str, str]:
+    aggregator = fetch_aggregator(aggregator_id)
+    if aggregator_id == NewsAggregatorsEnum.BING_NEWS.value:
+        last_end_dt = news_topic.bing_aggregation_last_end_time
+        if last_end_dt is None:
+            last_end_dt = datetime.now(timezone.utc) + aggregator.historical_articles_days_ago_start
+    elif aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
+        last_end_dt = news_topic.news_api_org_aggregation_last_end_time
+        if last_end_dt is None:
+            last_end_dt = datetime.now(timezone.utc) + aggregator.historical_articles_days_ago_start
+    else:
+        raise ValueError(f"Aggregator {aggregator_id} is not supported")
+    aggregation_data_start_dt = last_end_dt
+    aggregation_data_end_dt = aggregation_data_start_dt + timedelta(days=1)
+    return aggregation_data_start_dt.isoformat(), aggregation_data_end_dt.isoformat()
+
+
 def aggregation_scheduler(event, context):
-    return {"statusCode": 200, "body": "Hello World from Aggregation!"}
+    try:
+        aggregation_requests_scheduled = 0
+        aggregators = [
+            aggregator.aggregator_id.value
+            for aggregator in NewsAggregators.scan()
+            if aggregator.is_active == True
+        ]
+        news_topics = NewsTopics.scan()
+        for news_topic in news_topics:
+            if news_topic.is_active is False:
+                logger.info(f"Skipping inactive news topic {news_topic.topic_id}")
+                continue
+            for aggregator_id in aggregators:
+                agg = fetch_aggregator(aggregator_id)
+                if not agg.is_category_supported(news_topic.category):
+                    logger.info(
+                        f"Skipping aggregator {aggregator_id} for news topic {news_topic.topic_id} because category {news_topic.category} is not supported"
+                    )
+                    continue
+                aggregation_data_start_dt, aggregation_data_end_dt = get_aggregation_timeframe(
+                    news_topic, aggregator_id
+                )
+                aggregation_request_message = json.dumps(
+                    {
+                        "topic_id": news_topic.topic_id,
+                        "aggregator_id": aggregator_id,
+                        "aggregation_data_start_dt": aggregation_data_start_dt,
+                        "aggregation_data_end_dt": aggregation_data_end_dt,
+                    }
+                )
+                message_group_id = f"{aggregator_id}-{news_topic.topic_id}"
+                logger.info(
+                    f"Enqueuing aggregation request {aggregation_request_message} with message group id {message_group_id} to queue {NEWS_AGGREGATION_QUEUE_NAME}"
+                )
+                enqueue_aggregation_request(
+                    NEWS_AGGREGATION_QUEUE_NAME, aggregation_request_message, message_group_id
+                )
+                aggregation_requests_scheduled += 1
+        return {
+            "statusCode": 200,
+            "body": {"aggregation_requests_scheduled": aggregation_requests_scheduled},
+        }
+    except Exception as e:
+        logger.error(
+            f"Failed to schedule aggregation requests with error: {e}",
+            exc_info=True,
+        )
+        return {"statusCode": 500, "body": {"error": str(e)}}
+
+
+def enqueue_aggregation_request(queue_name: str, message_body: str, message_group_id: str) -> None:
+    if LOCAL_TESTING:
+        logger.info(
+            f"Skipping enqueueing message {message_body} with message group id {message_group_id} to queue {queue_name} because local testing is enabled"
+        )
+        return
+    sqs = boto3.resource("sqs")
+    # Get the queue. This returns an SQS.Queue instance
+    queue = sqs.get_queue_by_name(QueueName=queue_name)
+    queue.send_message(MessageBody=message_body, MessageGroupId=message_group_id)
 
 
 def sourcing_scheduler(event, context):
+    # TODO - here
     return {"statusCode": 200, "body": "Hello World from Sourcing!"}
 
 
@@ -100,17 +181,21 @@ def source_news_topic(event, context):
 
 def aggregate_news(event, context):
     try:
-        # TODO - we'll probably have a queue of topic id + aggregator id + aggregation_data_start_dt messages to aggregate
-        # and pull from that queue here
-        # we can also add an aggregator_id field and then fetch the aggregator class
-        topic_id = event.get("topic_id", "")
-        aggregator_id = event.get("aggregator_id", "")
-        if aggregator_id not in ENABLED_AGGREGATORS:
-            raise ValueError(f"Aggregator {aggregator_id} is not enabled")
+        logger.info(f"Received event: {event}")
+        if len(event["Records"]) != 1:
+            raise Exception(f"Expected 1 record but received {len(event['Records'])}")
+        message_body = json.loads(event["Records"][0]["body"])
+        topic_id = message_body.get("topic_id", "")
+        aggregator_id = message_body.get("aggregator_id", "")
+        news_aggregator = NewsAggregators.get(aggregator_id)
+        if not news_aggregator or not news_aggregator.is_active:
+            raise ValueError(f"Aggregator with id {aggregator_id} does not exist or is not active")
         # TODO - not sure what this format will be like.
         # example: "2023-05-30T17:51:22"
-        aggregation_data_start_dt = datetime.fromisoformat(event["aggregation_data_start_dt"])
-        aggregation_data_end_dt = datetime.fromisoformat(event["aggregation_data_end_dt"])
+        aggregation_data_start_dt = datetime.fromisoformat(
+            message_body["aggregation_data_start_dt"]
+        )
+        aggregation_data_end_dt = datetime.fromisoformat(message_body["aggregation_data_end_dt"])
         news_topic = NewsTopics.get(topic_id)
         if not news_topic:
             raise ValueError(f"News Topic with id {topic_id} does not exist")
@@ -226,6 +311,7 @@ def news_topic_exists(topic: str, category: str) -> bool:
     return False
 
 
+# TODO - probably move these out of here
 def create_news_topic(event, context):
     try:
         topic = event.get("topic").lower()
@@ -271,3 +357,14 @@ def create_news_topic(event, context):
             exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}
+
+
+# NOTE - this is a one time use function to create the news aggregators (mainly for testing)
+def create_news_aggregators(event, context):
+    for news_agg in NewsAggregatorsEnum:
+        logger.info(f"Creating news aggregator id {news_agg.value}")
+        news_aggregator = NewsAggregators(
+            aggregator_id=news_agg,
+            is_active=True,
+        )
+        news_aggregator.save()

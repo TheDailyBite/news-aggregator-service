@@ -69,9 +69,10 @@ Running Service locally:
 3. If it is the first time runnign the s3 local ui or you cleared the data, you'll need to create the required s3 buckets. Do so in the UI. The buckets are currently: `news-aggregator-candidate-articles-dev` and `news-aggregator-sourced-articles-dev` (there may be more since I may forget to update this README from time to time).
 4. Start a bash session in the `news_aggregator_service` container by executing `docker exec -it <container_id_of_container> bash`. To get the container id you simply can run `docker container ls`.
 5. Once in the container start `python`. Then run `exec(open("app.py").read())`. 
-6. Create a news topic by running the following:
+6. Create news aggregators and a news topic by running the following:
 ```python
-response = create_news_topic(test_news_topic_event_with_category, None)
+create_news_aggregators(None, None)
+response = create_news_topic(test_news_topic_event_without_category, None)
 topic_id = response["body"]["topic_id"]
 print(f"Topic ID: {topic_id}")
 ```
@@ -81,7 +82,7 @@ data_start = (datetime.now(timezone.utc) - timedelta(days=16)).isoformat()
 data_end = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
 event = {
   "topic_id": topic_id,
-  "aggregator_id": NEWS_API_ORG_AGGREGATOR_ID, # BING_AGGREGATOR_ID
+  "aggregator_id": NewsAggregatorsEnum.NEWS_API_ORG.value, # NewsAggregatorsEnum.BING_NEWS.value
   "aggregation_data_start_dt": data_start,
   "aggregation_data_end_dt": data_end,
 }

@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from news_aggregator_data_access_layer.assets.news_assets import CandidateArticles, RawArticle
+from news_aggregator_data_access_layer.constants import NewsAggregatorsEnum
 
 from news_aggregator_service.aggregators.news_aggregators import BingAggregator
-from news_aggregator_service.config import BING_AGGREGATOR_ID
 
 TEST_STORE_BUCKET = "test-store-bucket"
 TEST_STORE_PATHS = "path1,path2"
@@ -14,7 +14,7 @@ TEST_DT = datetime(2023, 4, 11, 21, 2, 39, 4166)
 TEST_AGGREGATION_RUN_ID = "test-aggregation-run-id"
 TEST_RAW_ARTICLE_1 = RawArticle(
     article_id="1#test-article-id",
-    aggregator_id=BING_AGGREGATOR_ID,
+    aggregator_id=NewsAggregatorsEnum.BING_NEWS.value,
     dt_published=TEST_PUBLISHED_DATE_STR,
     aggregation_index=0,
     topic_id="topic_id",
