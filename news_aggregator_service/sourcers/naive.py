@@ -81,13 +81,26 @@ class NaiveSourcer:
         article_cluster_gen = ArticleClusterGenerator(self.article_inventory)
         return article_cluster_gen.generate_clusters()
 
+    def _sort_clustered_articles(
+        self, clustered_articles: list[list[RawArticle]]
+    ) -> list[list[RawArticle]]:
+        """This sorts the clustered articles based on the sorting criteria."""
+        # currently clusters are sorted by size. A larger cluster is more likely to have more relevant articles.
+        logger.info(
+            f"Sorting {len(clustered_articles)} clusters of articles based on cluster size (largest first) prior to generating sourced articles."
+        )
+        sorted_clustered_articles = sorted(
+            clustered_articles, key=len, reverse=True
+        )  # largest cluster first
+        return sorted_clustered_articles
+
     def generate_sourced_articles(
         self, clustered_articles: list[list[RawArticle]], sourcing_run_id: str
     ) -> None:
         """This generates the sourced articles from the clusters of articles."""
         self.sourced_articles = []
-        # TODO - should we sort these by largest cluster size? that might not be a bad idea
-        for article_cluster in clustered_articles:
+        sorted_clustered_articles = self._sort_clustered_articles(clustered_articles)
+        for article_cluster in sorted_clustered_articles:
             if len(self.sourced_articles) >= self.top_k:
                 logger.info(
                     f"Reached top_k limit of {self.top_k} sourced articles. Breaking out of sourcing loop."

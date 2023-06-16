@@ -322,8 +322,6 @@ class SourcedArticle:
             self.success_marker_fn,
             s3_client=self.s3_client,
         )
-        # TODO - store in dynamodb - this might need to be revisited
-        # TODO - should the title be retwritten? probably
         db_sourced_article = SourcedArticles(
             topic_id=self.topic_id,
             sourced_article_id=self.sourced_article_id,

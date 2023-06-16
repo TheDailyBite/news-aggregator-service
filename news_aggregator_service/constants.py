@@ -9,11 +9,9 @@ SUPPORTED_SORTING = {DATE_SORTING, RELEVANCE_SORTING, POPULARITY_SORTING}
 SUMMARIZATION_FAILURE_MESSAGE = "Summarization failed."
 ARTICLE_SEPARATOR = "===================="
 MEDIUM_SUMMARY_DEFINITION = "The summary should be a medium length summary. A medium length summary is between 300-600 words."
-SHORT_SUMMARY_DEFINITION = (
-    "The summary should be a short length summary. A short length summary is between 150-200 words."
-)
+SHORT_SUMMARY_DEFINITION = "The summary should be a short length summary. A short length summary should be at most 3 sentences."
 # article rewrite
-NEWS_REPORTED_INTRO = "You are a world class news reporter, who is known for writing unbiased, informative, and entertaining articles in the ####topic#### space. "
+NEWS_REPORTED_INTRO = "You are a world class news reporter, who is known for writing unbiased, informative, and entertaining articles in the ####topic#### space. Don't mention who you are in your articles."
 REFINE_REWRITE_PROMPT_TEMPLATE = (
     NEWS_REPORTED_INTRO
     + """
@@ -57,27 +55,6 @@ SUMMARIZATION_TEMPLATE = (
     "{text}"
 
     SUMMARY:"""
-)
-# TODO - can probably remove these
-MAP_SUMMARIZATION_TEMPLATE = (
-    NEWS_REPORTED_INTRO
-    + """
-            Your task is to create a summary for a news article to ensure that it is unbiased and objective.
-            ####summary_definition####
-
-            "{text}"
-
-            SUMMARY:"""
-)
-COMBINE_SUMMARIZATION_TEMPLATE = (
-    NEWS_REPORTED_INTRO
-    + """
-            Your task is to create a summary for a news article to ensure that it is unbiased and objective. 
-            ####summary_definition####
-
-            "{text}"
-
-            SUMMARY:"""
 )
 # NOTE - in the future the template should probably take multiple articles in and aggregate them into a single summary.
 # Bing News

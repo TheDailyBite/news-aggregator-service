@@ -89,10 +89,12 @@ def sourcing_scheduler(event, context):
 
 
 def aggregate_news_topic(event, context):
+    logger.info(f"Received event: {event}")
     return {"statusCode": 200, "body": event}
 
 
 def source_news_topic(event, context):
+    logger.info(f"Received event: {event}")
     return {"statusCode": 200, "body": event}
 
 
