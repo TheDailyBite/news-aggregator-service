@@ -73,14 +73,14 @@ Running Service locally:
 ```python
 create_news_aggregators()
 topic="Generative AI"
-category="science-and-technology"
+category= ALL_CATEGORIES_STR # e.g. "science-and-technology" or ALL_CATEGORIES_STR (one of SUPPORTED_AGGREGATION_CATEGORIES)
 max_aggregator_results=25
 event = {
     "topic": topic,
     "category": category,
     "max_aggregator_results": max_aggregator_results,
 }
-response = create_news_topic(event)
+response = create_news_topic(event, None)
 topic_id = response["body"]["topic_id"]
 print(f"Topic ID: {topic_id}")
 ```
@@ -106,7 +106,7 @@ aggregate_news_topic(json.dumps(event), None)
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
 9. Sourcing Articles for a given topic/date
 ```python
-sourcing_date = datetime(2023, 6, 7, tzinfo=timezone.utc)
+sourcing_date = datetime(2023, 6, 8, tzinfo=timezone.utc)
 event = {
   "Records": [
     {

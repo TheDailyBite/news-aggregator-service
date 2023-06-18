@@ -87,7 +87,9 @@ def get_aggregation_timeframe(news_topic: NewsTopics, aggregator_id: str) -> tup
     else:
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
     aggregation_data_start_dt = last_end_dt
-    aggregation_data_end_dt = aggregation_data_start_dt + timedelta(days=1)
+    aggregation_data_end_dt = aggregation_data_start_dt + timedelta(
+        days=1
+    )  # NOTE - currently the window is 1 day
     return aggregation_data_start_dt.isoformat(), aggregation_data_end_dt.isoformat()
 
 
@@ -175,8 +177,11 @@ def sourcing_scheduler(event, context):
         news_topics = NewsTopics.scan()
         for news_topic in news_topics:
             if news_topic.is_active is False:
-                logger.info(f"Skipping inactive news topic {news_topic.topic_id}")
+                logger.info(
+                    f"Skipping sourcing scheduling inactive news topic {news_topic.topic_id}"
+                )
                 continue
+            logger.info(f"Scheduling sourcing for news topic {news_topic.topic_id}")
             last_publishing_date = news_topic.last_publishing_date
             if last_publishing_date is None:
                 # this is a fictitious date that is before the oldest publishing date supported by the aggregators
