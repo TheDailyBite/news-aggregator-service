@@ -44,3 +44,4 @@ NEWS_AGGREGATION_QUEUE_NAME = os.environ.get(
     "NEWS_AGGREGATION_QUEUE_NAME", "news-aggregation-queue.fifo"
 )
 NEWS_SOURCING_QUEUE_NAME = os.environ.get("NEWS_SOURCING_QUEUE_NAME", "news-sourcing-queue.fifo")
+DAILY_SOURCING_FREQUENCY = float(os.environ.get("DAILY_SOURCING_FREQUENCY", 1))

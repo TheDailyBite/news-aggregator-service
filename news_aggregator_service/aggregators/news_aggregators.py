@@ -48,6 +48,7 @@ from news_aggregator_service.constants import (
     DATE_SORTING,
     NEWS_API_ORG_CATEGORIES_MAPPER,
     NEWS_API_ORG_PUBLISHED_DATE_REGEX,
+    OLDEST_SUPPORTED_PUBLISHING_DATE,
     POPULARITY_SORTING,
     RELEVANCE_SORTING,
     SUPPORTED_SORTING,
@@ -266,7 +267,14 @@ class BingAggregator(AggregatorInterface):
             DATE_SORTING: news_api_org.SortByEnum.PUBLISHED_AT,
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
-        self._historical_articles_days_ago_start = timedelta(days=-1)
+        self._historical_articles_days_ago_start: timedelta = max(
+            timedelta(days=-1),
+            OLDEST_SUPPORTED_PUBLISHING_DATE
+            - datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0),
+        )
+        logger.info(
+            f"Historical articles days ago start: {self._historical_articles_days_ago_start} supported for aggregator {self._aggregator_id}"
+        )
 
     @property
     def aggregator_id(self):
@@ -524,7 +532,15 @@ class NewsApiOrgAggregator(AggregatorInterface):
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
         # TODO - this should change after upgrading to premium subscription
-        self._historical_articles_days_ago_start = timedelta(days=-30)
+        # TODO - instead of -30 it can probably be set to the oldest supported publishing date by the aggregator
+        self._historical_articles_days_ago_start: timedelta = max(
+            timedelta(days=-30),
+            OLDEST_SUPPORTED_PUBLISHING_DATE
+            - datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0),
+        )
+        logger.info(
+            f"Historical articles days ago start: {self._historical_articles_days_ago_start} for aggregator {self._aggregator_id}"
+        )
 
     @property
     def aggregator_id(self):

@@ -71,22 +71,36 @@ Running Service locally:
 5. Once in the container start `python`. Then run `exec(open("app.py").read())`. 
 6. Create news aggregators and a news topic by running the following:
 ```python
-create_news_aggregators(None, None)
-response = create_news_topic(test_news_topic_event_without_category, None)
+create_news_aggregators()
+topic="Generative AI"
+category="science-and-technology"
+max_aggregator_results=25
+event = {
+    "topic": topic,
+    "category": category,
+    "max_aggregator_results": max_aggregator_results,
+}
+response = create_news_topic(event)
 topic_id = response["body"]["topic_id"]
 print(f"Topic ID: {topic_id}")
 ```
-7. Once you have the news topic you wish to aggregate, you can run `aggregate_news(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
+7. Once you have the news topic you wish to aggregate, you can run `aggregate_news_topic(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
 ```python
-data_start = (datetime.now(timezone.utc) - timedelta(days=16)).isoformat()
-data_end = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+data_start = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+data_end = (datetime.now(timezone.utc) - timedelta(days=9)).isoformat()
 event = {
-  "topic_id": topic_id,
-  "aggregator_id": NewsAggregatorsEnum.NEWS_API_ORG.value, # NewsAggregatorsEnum.BING_NEWS.value
-  "aggregation_data_start_dt": data_start,
-  "aggregation_data_end_dt": data_end,
+  "Records": [
+    {
+      "body": {
+        "topic_id": topic_id,
+        "aggregator_id": NewsAggregatorsEnum.NEWS_API_ORG.value, # NewsAggregatorsEnum.BING_NEWS.value
+        "aggregation_data_start_dt": data_start,
+        "aggregation_data_end_dt": data_end,
+      }
+    }
+  ]
 }
-aggregate_news(event, None)
+aggregate_news_topic(json.dumps(event), None)
 ```
 8. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-candidate-articles-dev` bucket. The aggregation run will show all prefixes where data was stored in s3 in the `aggregated_articles_ref` attribute.
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
@@ -94,11 +108,17 @@ aggregate_news(event, None)
 ```python
 sourcing_date = datetime(2023, 6, 7, tzinfo=timezone.utc)
 event = {
-  "topic_id": topic_id,
-  "sourcing_date": sourcing_date.isoformat(),
-  "daily_sourcing_frequency": "2.5"
+  "Records": [
+    {
+      "body": {
+        "topic_id": topic_id,
+        "sourcing_date": sourcing_date.isoformat(),
+        "daily_sourcing_frequency": "2.5"
+      }
+    }
+  ]
 }
-response = source_articles(event, None)
+response = source_news_topic(json.dumps(event), None)
 ```
 10. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-sourced-articles-dev` bucket for the specified topic_id and publishing_date. See also in dynamodb in the `sourced-articles-dev` table.
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
