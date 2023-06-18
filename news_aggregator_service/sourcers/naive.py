@@ -16,15 +16,10 @@ from news_aggregator_data_access_layer.constants import (
     ARTICLE_SOURCED_TAGS_FLAG,
     DATE_SORTING_STR,
     RELEVANCE_SORTING_STR,
-    AggregatorRunStatus,
     ArticleApprovalStatus,
     ResultRefTypes,
 )
-from news_aggregator_data_access_layer.models.dynamodb import (
-    AggregatorRuns,
-    SourcedArticles,
-    get_uuid4_attribute,
-)
+from news_aggregator_data_access_layer.models.dynamodb import SourcedArticles, get_uuid4_attribute
 from news_aggregator_data_access_layer.utils.s3 import dt_to_lexicographic_date_s3_prefix
 
 from news_aggregator_service.sourcers.models.sourced_articles import (

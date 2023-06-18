@@ -1,7 +1,8 @@
-from typing import Mapping, Union
+from typing import Union
 
 import logging
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 
 import boto3
@@ -46,7 +47,7 @@ def publish_metric_data(
     default_dimensions = {"Metric Type": "Custom"}
     metric_dimensions = {**default_dimensions, **dimensions}
     if LOCAL_TESTING:
-        logger = setup_logger()
+        logger = setup_logger(__name__)
         logger.info(f"Metric: {name} - {value} - {metric_dimensions}")
         return
     cloudwatch_client = boto3.client("cloudwatch", region_name=REGION_NAME)

@@ -28,16 +28,9 @@ AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER = int(
 # this is the approximate max number of articles to publish each day for each topic
 DEFAULT_DAILY_PUBLISHING_LIMIT = int(os.environ.get("DEFAULT_DAILY_PUBLISHING_LIMIT", 5))
 # AGGREGATOR IDS ARE NAMED camelCase
-BING_AGGREGATOR_ID = "bingNews"
 DEFAULT_MAX_BING_AGGREGATOR_RESULTS = int(
     os.environ.get("DEFAULT_MAX_BING_AGGREGATOR_RESULTS", 100)
 )
-NEWS_API_ORG_AGGREGATOR_ID = "newsApiOrg"
-# NOTE - comma separated list
-DEFAULT_ENABLED_AGGREGATORS = f"{BING_AGGREGATOR_ID},{NEWS_API_ORG_AGGREGATOR_ID}"
-ENABLED_AGGREGATORS = [
-    a.strip() for a in os.environ.get("ENABLED_AGGREGATORS", DEFAULT_ENABLED_AGGREGATORS).split(",")
-]
 REQUESTS_SLEEP_TIME_S = 1
 DEFAULT_LOGGER_NAME = "news_aggregator_service"
 LOCAL_TESTING = os.environ.get("LOCAL_TESTING", "false").lower() in ["true"]
@@ -47,3 +40,8 @@ SUMMARIZATION_MODEL_NAME = os.environ.get("SUMMARIZATION_MODEL_NAME", "gpt-3.5-t
 # TODO - what should this be?
 SUMMARIZATION_TEMPERATURE = float(os.environ.get("SUMMARIZATION_TEMPERATURE", 0.0))
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+NEWS_AGGREGATION_QUEUE_NAME = os.environ.get(
+    "NEWS_AGGREGATION_QUEUE_NAME", "news-aggregation-queue.fifo"
+)
+NEWS_SOURCING_QUEUE_NAME = os.environ.get("NEWS_SOURCING_QUEUE_NAME", "news-sourcing-queue.fifo")
+DAILY_SOURCING_FREQUENCY = float(os.environ.get("DAILY_SOURCING_FREQUENCY", 1))

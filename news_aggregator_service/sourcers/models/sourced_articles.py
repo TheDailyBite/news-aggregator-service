@@ -158,6 +158,7 @@ class SourcedArticle:
         self.full_article_summary: Optional[str] = None
         self.medium_article_summary: Optional[str] = None
         self.short_article_summary: Optional[str] = None
+        self.article_processing_cost = 0.0
         summarization_open_ai = ChatOpenAI(
             model_name=SUMMARIZATION_MODEL_NAME,
             openai_api_key=openai_api_key,
@@ -256,6 +257,7 @@ class SourcedArticle:
         # find out sentiment?
         # More?
         self.is_processed = True
+        self.article_processing_cost = article_processing_cost
         return article_processing_cost
 
     def store_article(self):
@@ -337,6 +339,7 @@ class SourcedArticle:
             medium_summary_ref=medium_summary_key,
             full_summary_ref=full_summary_key,
             sourcing_run_id=self.sourcing_run_id,
+            article_processing_cost=self.article_processing_cost,
         )
         logger.info(
             f"Saving sourced article for partition key {self.topic_id} and range key {self.sourced_article_id} to dynamodb..."

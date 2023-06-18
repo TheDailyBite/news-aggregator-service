@@ -1,9 +1,14 @@
+from datetime import datetime, timedelta, timezone
+
 from news_aggregator_data_access_layer.constants import ALL_CATEGORIES_STR
 
 DATE_SORTING = "date"
 RELEVANCE_SORTING = "relevance"
 POPULARITY_SORTING = "popularity"
 SUPPORTED_SORTING = {DATE_SORTING, RELEVANCE_SORTING, POPULARITY_SORTING}
+# NOTE - no aggregation or sourcing will occur for articles older than this date.
+# it could be of course that an aggregator doesn't even go this far back in time which is fine.
+OLDEST_SUPPORTED_PUBLISHING_DATE = datetime(2023, 1, 1, tzinfo=timezone.utc)
 
 # TODO - move to app config
 SUMMARIZATION_FAILURE_MESSAGE = "Summarization failed."
