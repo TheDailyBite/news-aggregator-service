@@ -35,7 +35,8 @@ REQUESTS_SLEEP_TIME_S = 1
 DEFAULT_LOGGER_NAME = "news_aggregator_service"
 LOCAL_TESTING = os.environ.get("LOCAL_TESTING", "false").lower() in ["true"]
 DEFAULT_NAMESPACE = os.environ.get("DEFAULT_NAMESPACE", "NewsAggregatorService")
-MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE = int(os.environ.get("MINIMUM_ARTICLE_INVENTORY_SIZE", 5))
+# NOTE - the inventory size impacts the clustering quality. Anectodatlly, 10 is a good number.
+MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE = int(os.environ.get("MINIMUM_ARTICLE_INVENTORY_SIZE", 10))
 SUMMARIZATION_MODEL_NAME = os.environ.get("SUMMARIZATION_MODEL_NAME", "gpt-3.5-turbo")
 # TODO - what should this be?
 SUMMARIZATION_TEMPERATURE = float(os.environ.get("SUMMARIZATION_TEMPERATURE", 0.0))

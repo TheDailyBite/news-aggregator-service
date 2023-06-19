@@ -5,6 +5,7 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
+from langchain.embeddings import OpenAIEmbeddings
 from news_aggregator_data_access_layer.assets.news_assets import RawArticle
 from news_aggregator_data_access_layer.constants import (
     ALL_CATEGORIES_STR,
@@ -225,4 +226,4 @@ def test_article_cluster_generator_init():
     cluster_generator = ArticleClusterGenerator(raw_articles)
     assert cluster_generator.raw_articles == raw_articles
     assert cluster_generator.clustered_articles == []
-    assert cluster_generator._embedding_model_name == "sentence-transformers/all-mpnet-base-v2"
+    assert isinstance(cluster_generator.embeddings_model, OpenAIEmbeddings)

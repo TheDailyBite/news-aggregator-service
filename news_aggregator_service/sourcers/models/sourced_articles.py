@@ -8,13 +8,15 @@ from itertools import zip_longest
 
 import boto3
 import numpy as np
+import tiktoken
 from langchain import PromptTemplate
 from langchain.callbacks import get_openai_callback
 from langchain.chains import LLMChain
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chat_models import ChatOpenAI
 from langchain.docstore.document import Document
-from langchain.embeddings import HuggingFaceHubEmbeddings
+from langchain.embeddings import HuggingFaceHubEmbeddings, OpenAIEmbeddings
+from langchain.embeddings.base import Embeddings
 from langchain.text_splitter import TokenTextSplitter
 from news_aggregator_data_access_layer.assets.news_assets import RawArticle
 from news_aggregator_data_access_layer.config import (
@@ -436,7 +438,12 @@ class ArticleClusterGenerator:
     def __init__(self, raw_articles: list[RawArticle]):
         self.raw_articles = raw_articles
         self.clustered_articles: list[list[RawArticle]] = []
-        self._embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
+        self._openai_ada2_text_embedding_model = OpenAIEmbeddings(  # type: ignore
+            chunk_size=2048, model="text-embedding-ada-002", openai_api_key=openai_api_key
+        )
+        # change if needed. Currently ada2 text is set as default
+        self.embeddings_model = self._openai_ada2_text_embedding_model
+        self.embeddings_model_cost_per_token = 0.0001 / 1000
 
     def generate_clusters(self) -> list[list[RawArticle]]:
         if self.clustered_articles:
@@ -444,13 +451,14 @@ class ArticleClusterGenerator:
         if len(self.raw_articles) <= 2:
             return [[article] for article in self.raw_articles]
         logger.info(f"Generating clusters for {len(self.raw_articles)} articles...")
-        # NOTE - given the weakness of news text generation via url it seems to be unrealiable to
-        # generate embeddings with the raw article text. Instead we will use the article title which seems to perform well.
-        # we will probably need to revisit this in the future. Possibly adding a portion of the article text to the title
-        # could give the embedding even more context to cluster on.
-        titles = [article.title for article in self.raw_articles]
-        title_embeddings = self._generate_embeddings(titles)
-        cluster_labels, n_clusters = self._cluster_embeddings(title_embeddings)
+        # NOTE - we tried to generate clusters using the title embeddings but it didn't work well
+        # now we utilize title + text to generate embeddings and perform clustering. This seems to work well.
+        # we may be able to further improve this
+        docs = [f"{article.title} {article.get_article_text()}" for article in self.raw_articles]
+        embeddings = self._generate_embeddings(
+            docs, self.embeddings_model, self.embeddings_model_cost_per_token
+        )
+        cluster_labels, n_clusters = self._cluster_embeddings(embeddings)
         self.clustered_articles = self._group_articles_by_cluster(
             self.raw_articles, cluster_labels, n_clusters
         )
@@ -476,14 +484,33 @@ class ArticleClusterGenerator:
         return result
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
-    def _generate_embeddings(self, docs: list[str]) -> list[list[float]]:
-        embedding_model = HuggingFaceHubEmbeddings(  # type: ignore
-            repo_id=self._embedding_model_name,
-            task="feature-extraction",
-            huggingfacehub_api_token=huggingface_api_key,
+    def _generate_embeddings(
+        self, docs: list[str], embedding_model: Embeddings, cost_per_token: float
+    ) -> list[list[float]]:
+        encoding = tiktoken.model.encoding_for_model(embedding_model.model)  # type: ignore
+        total_tokens = 0
+        for doc in docs:
+            tokens = encoding.encode(
+                doc,
+                allowed_special=embedding_model.allowed_special,  # type: ignore
+                disallowed_special=embedding_model.disallowed_special,  # type: ignore
+            )
+            total_tokens += len(tokens)
+        # TODO - add timing
+        embeddings = embedding_model.embed_documents(docs)
+        if (
+            not embeddings
+            or not isinstance(embeddings, list)
+            or not isinstance(embeddings[0], list)
+            or not isinstance(embeddings[0][0], float)
+        ):
+            raise ValueError(
+                f"Embeddings are not in the expected format. Expected list[list[float]]; got {type(embeddings)}. {embeddings}"
+            )
+        logger.info(
+            f"Total tokens in documents: {total_tokens}. Approx Cost USD to generate embeddings with model {embedding_model}: {total_tokens * cost_per_token}"
         )
-        # TODO - add timing metrics
-        return embedding_model.embed_documents(docs)
+        return embeddings
 
     def _cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
         range_n_clusters = range(2, len(embeddings))
@@ -494,7 +521,9 @@ class ArticleClusterGenerator:
             # The silhouette coefficient can range from -1, 1
             # Initialize the clusterer with n_clusters value and a random generator
             # seed of 10 for reproducibility.
-            clusterer = KMeans(n_clusters=n_clusters, n_init="auto", random_state=10)
+            clusterer = KMeans(
+                n_clusters=n_clusters, init="k-means++", n_init="auto", random_state=10
+            )
             cluster_labels = clusterer.fit_predict(embeddings_np)
             # The silhouette_score gives the average value for all the samples.
             # This gives a perspective into the density and separation of the formed

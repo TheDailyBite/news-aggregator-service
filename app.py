@@ -411,8 +411,11 @@ def create_news_topic(event, context):
 
 
 # NOTE - this is a one time use function to create the news aggregators (mainly for testing)
-def create_news_aggregators():
-    for news_agg in NewsAggregatorsEnum:
+def create_news_aggregators(news_aggs: list[NewsAggregatorsEnum] = []) -> None:
+    if not news_aggs:
+        logger.info(f"No news aggregators specified. Will initialize all news aggregators.")
+        news_aggs = [news_agg for news_agg in NewsAggregatorsEnum]
+    for news_agg in news_aggs:
         logger.info(f"Creating news aggregator id {news_agg.value}")
         news_aggregator = NewsAggregators(
             aggregator_id=news_agg,
