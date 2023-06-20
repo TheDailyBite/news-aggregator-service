@@ -56,11 +56,47 @@ git remote add origin https://github.com/TheDailyBite/news-aggregator-service.gi
 git push -u origin main
 ```
 
+#### Running /scripts
+- Note that you must have the `news_aggregator_service` installed (via `make install`) and then run `poetry shell`.
+- This will ensure you have access to all the packages needed to run the scripts.
+
+### Initialize system  in new environment
+1. See [Running /scripts](running-/scripts). Navigate to the scripts folder: `cd scripts`
+2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
+3. `python initialize_news_aggregators.py`. Make sure to only include the desired news aggregators.
+4. `python create_news_topic.py` with all the news topics you wish to create. This will request a few parameters.
+
 ### Sourced Article Review
-1. Navigate to the scripts folder: `cd scripts`
+1. See [Running /scripts](running-/scripts). Navigate to the scripts folder: `cd scripts`
 2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
 3. Run `python review_pending_articles.py`
 4. The CLI should guide you through the process of reviewing articles. Be careful! You can't undo your actions.
+
+
+### Fresh Start News Topic Publishing
+This assume the news topic does not exist. This is a completely new news topic you wish to introduce to the system.
+If you simply want to re-source an existing news topic, see the section below.
+1. [Create a News Topic](#create-a-news-topic)
+2. We need to force news aggregation to occur from the past until today. Triggering aggregation scheduler will trigger aggregation scheduling to happen from the oldest supported day until today. This can be done from the AWS console for the lambda as this is time triggered (sending any test event).
+3. After each aggregation is actually processed, sourcing scheduling can be triggered. This can be done from the AWS console for the lambda as this is time triggered (sending any test event). This will source all the articles that were aggregated.
+4. [Sourced Article Review](#sourced-article-review)
+
+### Re-source News Topic Publishing
+This assume the news topic already exists. This is a news topic you wish to re-source, that is re-publish all the articles that were previously sourced for the news topic. This is more complicated and you need to be careful.
+1. We need to set `last_publishing_date`, `bing_aggregation_last_end_time`, and `news_api_org_aggregation_last_end_time` (NOTE - add more if more aggregators are introduced) to `None`. This can be done by running the script (`/scripts`) TODO
+2. For the given news topic, we'd need to delete all the articles that were previously sourced. This can be done by running the script (`/scripts`) TODO. TODO maybe also delete PublishedArticles?
+
+### Initialize a News Aggregator
+1. Navigate to the scripts folder: `cd scripts`
+2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
+3. Run `python create_news_topic.py` with the appropriate arguments. You can run `python initialize_news_aggregators.py --help` to see the arguments. (example: `python initialize_news_aggregators.py "newsapi.org" "bingnews"`)
+4. The CLI should guide you through the process of initializing a news aggregator.
+
+### Create a News Topic
+1. Navigate to the scripts folder: `cd scripts`
+2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
+3. Run `python create_news_topic.py` with the appropriate arguments. You can run `python create_news_topic.py --help` to see the arguments. (example: `python create_news_topic.py --daily-publishing-limit 10 "Generative AI" "" 25`)
+4. The CLI should guide you through the process of creating a news topic.
 
 ### Local Testing
 The entirety of the aggregation service can be tested local by using the docker-compose file found in the `docker/` sub-directory.

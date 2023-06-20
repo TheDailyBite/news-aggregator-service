@@ -2,11 +2,9 @@ from typing import List, Set, Tuple
 
 import json
 import math
-import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 import boto3
-from news_aggregator_data_access_layer.config import SELF_USER_ID
 from news_aggregator_data_access_layer.constants import (
     ALL_CATEGORIES_STR,
     SUPPORTED_AGGREGATION_CATEGORIES,
@@ -74,7 +72,9 @@ def update_news_topic_last_aggregation_dts(
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
 
 
-def get_aggregation_timeframe(news_topic: NewsTopics, aggregator_id: str) -> tuple[str, str]:
+def get_aggregation_timeframe(
+    news_topic: NewsTopics, aggregator_id: str
+) -> tuple[datetime, datetime]:
     aggregator = fetch_aggregator(aggregator_id)
     if aggregator_id == NewsAggregatorsEnum.BING_NEWS.value:
         last_end_dt = news_topic.bing_aggregation_last_end_time
@@ -90,7 +90,7 @@ def get_aggregation_timeframe(news_topic: NewsTopics, aggregator_id: str) -> tup
     aggregation_data_end_dt = aggregation_data_start_dt + timedelta(
         days=1
     )  # NOTE - currently the window is 1 day
-    return aggregation_data_start_dt.isoformat(), aggregation_data_end_dt.isoformat()
+    return aggregation_data_start_dt, aggregation_data_end_dt
 
 
 def get_oldest_publishing_date() -> datetime:
@@ -110,6 +110,7 @@ def get_oldest_publishing_date() -> datetime:
 def aggregation_scheduler(event, context):
     try:
         aggregation_requests_scheduled = 0
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         aggregators = [
             aggregator.aggregator_id.value
             for aggregator in NewsAggregators.scan()
@@ -130,22 +131,26 @@ def aggregation_scheduler(event, context):
                 aggregation_data_start_dt, aggregation_data_end_dt = get_aggregation_timeframe(
                     news_topic, aggregator_id
                 )
-                aggregation_request_message = json.dumps(
-                    {
-                        "topic_id": news_topic.topic_id,
-                        "aggregator_id": aggregator_id,
-                        "aggregation_data_start_dt": aggregation_data_start_dt,
-                        "aggregation_data_end_dt": aggregation_data_end_dt,
-                    }
-                )
-                message_group_id = f"{aggregator_id}-{news_topic.topic_id}"
-                logger.info(
-                    f"Enqueuing aggregation request {aggregation_request_message} with message group id {message_group_id} to queue {NEWS_AGGREGATION_QUEUE_NAME}"
-                )
-                enqueue_aggregation_request(
-                    NEWS_AGGREGATION_QUEUE_NAME, aggregation_request_message, message_group_id
-                )
-                aggregation_requests_scheduled += 1
+                # enqueue aggregation requests until today
+                while aggregation_data_start_dt <= today:
+                    aggregation_request_message = json.dumps(
+                        {
+                            "topic_id": news_topic.topic_id,
+                            "aggregator_id": aggregator_id,
+                            "aggregation_data_start_dt": aggregation_data_start_dt.isoformat(),
+                            "aggregation_data_end_dt": aggregation_data_end_dt.isoformat(),
+                        }
+                    )
+                    message_group_id = f"{aggregator_id}-{news_topic.topic_id}"
+                    logger.info(
+                        f"Enqueuing aggregation request {aggregation_request_message} with message group id {message_group_id} to queue {NEWS_AGGREGATION_QUEUE_NAME} for timeframe {aggregation_data_start_dt.isoformat()} to {aggregation_data_end_dt.isoformat()}"
+                    )
+                    enqueue_aggregation_request(
+                        NEWS_AGGREGATION_QUEUE_NAME, aggregation_request_message, message_group_id
+                    )
+                    aggregation_requests_scheduled += 1
+                    aggregation_data_start_dt = aggregation_data_end_dt
+                    aggregation_data_end_dt += timedelta(days=1)
         return {
             "statusCode": 200,
             "body": {"aggregation_requests_scheduled": aggregation_requests_scheduled},
@@ -352,73 +357,3 @@ def source_news_topic(event, context):
             exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}
-
-
-def news_topic_exists(topic: str, category: str) -> bool:
-    news_topics = NewsTopics.scan()
-    for news_topic in news_topics:
-        if news_topic.topic == topic and news_topic.category == category:
-            return True
-    return False
-
-
-# TODO - probably move these out of here
-def create_news_topic(event, context):
-    try:
-        topic = event.get("topic").lower()
-        category = event.get("category").lower()
-        max_aggregator_results = int(event.get("max_aggregator_results"))
-        if category not in SUPPORTED_AGGREGATION_CATEGORIES:
-            raise ValueError(
-                f"Category {category} is not supported. Supported categories: {SUPPORTED_AGGREGATION_CATEGORIES}"
-            )
-        topic = urllib.parse.quote_plus(topic)
-        logger.info(f"Url encoded topic: {topic} from original input topic {event['topic']}")
-        if max_aggregator_results <= 0:
-            raise ValueError(
-                f"max_aggregator_results must be greater than 0. Got {max_aggregator_results}"
-            )
-        if news_topic_exists(topic, category):
-            raise ValueError(f"Topic {topic} and category {category} already exist.")
-        logger.info(
-            f"Creating news topic with topic: {topic}, category: {category}, max aggregator results: {max_aggregator_results}"
-        )
-        topic_id = get_uuid4_attribute()
-        news_topic = NewsTopics(
-            topic_id=topic_id,
-            topic=topic,
-            category=category,
-            is_active=True,
-            is_published=False,
-            date_created=get_current_dt_utc_attribute(),
-            max_aggregator_results=max_aggregator_results,
-            daily_publishing_limit=DEFAULT_DAILY_PUBLISHING_LIMIT,
-        )
-        news_topic.save(condition=NewsTopics.topic_id.does_not_exist())
-        return {
-            "statusCode": 200,
-            "body": {
-                "message": f"Successfully created news topic with topic: {topic}, category: {category}, max aggregator results: {max_aggregator_results}",
-                "topic_id": topic_id,
-            },
-        }
-    except Exception as e:
-        logger.error(
-            f"Failed to create news topic with topic: {topic}, category: {category}, max aggregator results: {max_aggregator_results} with error: {e}",
-            exc_info=True,
-        )
-        return {"statusCode": 500, "body": {"error": str(e)}}
-
-
-# NOTE - this is a one time use function to create the news aggregators (mainly for testing)
-def create_news_aggregators(news_aggs: list[NewsAggregatorsEnum] = []) -> None:
-    if not news_aggs:
-        logger.info(f"No news aggregators specified. Will initialize all news aggregators.")
-        news_aggs = [news_agg for news_agg in NewsAggregatorsEnum]
-    for news_agg in news_aggs:
-        logger.info(f"Creating news aggregator id {news_agg.value}")
-        news_aggregator = NewsAggregators(
-            aggregator_id=news_agg,
-            is_active=True,
-        )
-        news_aggregator.save()
