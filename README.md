@@ -56,6 +56,12 @@ git remote add origin https://github.com/TheDailyBite/news-aggregator-service.gi
 git push -u origin main
 ```
 
+### Sourced Article Review
+1. Navigate to the scripts folder: `cd scripts`
+2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
+3. Run `python review_pending_articles.py`
+4. The CLI should guide you through the process of reviewing articles. Be careful! You can't undo your actions.
+
 ### Local Testing
 The entirety of the aggregation service can be tested local by using the docker-compose file found in the `docker/` sub-directory.
 
