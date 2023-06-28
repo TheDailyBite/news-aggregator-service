@@ -13,7 +13,9 @@ from news_aggregator_data_access_layer.constants import (
 from news_aggregator_data_access_layer.models.dynamodb import (
     NewsAggregators,
     NewsTopics,
+    PreviewUsers,
     TrustedNewsProviders,
+    UserTopicSubscriptions,
     create_tables,
     get_current_dt_utc_attribute,
     get_uuid4_attribute,
@@ -32,8 +34,10 @@ from news_aggregator_service.config import (
     NEWS_AGGREGATION_QUEUE_NAME,
     NEWS_SOURCING_QUEUE_NAME,
 )
-from news_aggregator_service.exceptions import UnsupportedCategoryException
-from news_aggregator_service.sourcers.naive import NaiveSourcer
+from news_aggregator_service.exceptions import (
+    PreviewUserNotExistsException,
+    UnsupportedCategoryException,
+)
 
 create_tables()
 
@@ -297,6 +301,8 @@ def aggregate_news_topic(event, context):
 
 def source_news_topic(event, context):
     try:
+        from news_aggregator_service.sourcers.naive import NaiveSourcer
+
         logger.info(f"Received event: {event}")
         event = json.loads(event)
         if len(event["Records"]) != 1:
@@ -357,3 +363,129 @@ def source_news_topic(event, context):
             exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}
+
+
+def subscribe_news_topics(event, context):
+    try:
+        logger.info(f"Received event: {event}")
+        user_id = event.get("user_id", "")
+        if not user_id:
+            raise ValueError("user_id must be specified")
+        news_topics_to_unsubscribe = event.get("news_topics_to_unsubscribe", None)
+        if news_topics_to_unsubscribe is None:
+            raise ValueError("news_topics_to_unsubscribe must be specified")
+        news_topics_to_subscribe = event.get("news_topics_to_subscribe", None)
+        if news_topics_to_subscribe is None:
+            raise ValueError("news_topics_to_subscribe must be specified")
+        for topic_id in news_topics_to_unsubscribe:
+            logger.info(f"Unsubscribing user id {user_id} from topic id {topic_id}")
+            try:
+                UserTopicSubscriptions(user_id, topic_id).delete()
+            except Exception as e:
+                logger.error(
+                    f"Failed to unsubscribe user id {user_id} from topic id {topic_id} with error: {e}",
+                    exc_info=True,
+                )
+                # TODO - emit metric
+                continue
+        for topic_id in news_topics_to_subscribe:
+            logger.info(f"Subscribing user id {user_id} to topic id {topic_id}")
+            try:
+                UserTopicSubscriptions(
+                    user_id, topic_id, date_subscribed=get_current_dt_utc_attribute()
+                ).save()
+            except Exception as e:
+                logger.error(
+                    f"Failed to subscribe user id {user_id} to topic id {topic_id} with error: {e}",
+                    exc_info=True,
+                )
+                # TODO - emit metric
+                continue
+        return {"statusCode": 200, "body": {"message": "Success"}}
+    except ValueError as ve:
+        logger.error(
+            f"Failed to subscribe to news topics for user id {user_id} with error: {ve}",
+            exc_info=True,
+        )
+        return {"statusCode": 400, "body": {"error": "Invalid request"}}
+    except Exception as e:
+        logger.error(
+            f"Failed to subscribe to news topics for user id {user_id} with error: {e}",
+            exc_info=True,
+        )
+        return {"statusCode": 500, "body": {"error": "Internal server error"}}
+
+
+def get_news_topics(event, context):
+    try:
+        logger.info(f"Received event: {event}")
+        user_id = event.get("user_id", "")
+        if not user_id:
+            raise ValueError("user_id must be specified")
+        try:
+            user = PreviewUsers.get(user_id)
+        except PreviewUsers.DoesNotExist:
+            raise PreviewUserNotExistsException()
+        user_news_topics = UserTopicSubscriptions.query(user_id)
+        user_news_topic_ids = [user_news_topic.topic_id for user_news_topic in user_news_topics]
+        news_topics = NewsTopics.scan()
+        published_news_topics = [
+            {
+                "topic_id": news_topic.topic_id,
+                "topic": news_topic.topic,
+                "category": news_topic.category,
+                "last_publishing_date": news_topic.last_publishing_date.isoformat()
+                if news_topic.last_publishing_date
+                else "",
+                "is_user_subscribed": news_topic.topic_id in user_news_topic_ids,
+            }
+            for news_topic in news_topics
+            if news_topic.is_published
+        ]
+        return {"statusCode": 200, "body": {"results": published_news_topics}}
+    except ValueError as ve:
+        logger.error(
+            f"Failed to get news topics for user id {user_id} with error: {ve}",
+            exc_info=True,
+        )
+        return {"statusCode": 400, "body": {"error": "Invalid request"}}
+    except Exception as e:
+        logger.error(
+            f"Failed to get news topics for user id {user_id} with error: {e}",
+            exc_info=True,
+        )
+        return {"statusCode": 500, "body": {"error": "Internal server error"}}
+
+
+def validate_preview_user(event, context):
+    try:
+        logger.info(f"Received event: {event}")
+        user_id = event.get("user_id", "")
+        if not user_id:
+            raise ValueError("user_id must be specified")
+        try:
+            preview_user = PreviewUsers.get(user_id)
+            return {
+                "statusCode": 200,
+                "body": {"user_id": preview_user.user_id, "name": preview_user.name},
+            }
+        except PreviewUsers.DoesNotExist:
+            raise PreviewUserNotExistsException()
+    except ValueError as ve:
+        logger.error(
+            f"Failed to validate preview user with error: {ve}",
+            exc_info=True,
+        )
+        return {"statusCode": 400, "body": {"error": "Invalid request."}}
+    except PreviewUserNotExistsException as e:
+        logger.error(
+            f"Failed to validate preview user with error: {e}",
+            exc_info=True,
+        )
+        return {"statusCode": 401, "body": {"error": "Preview user does not exist."}}
+    except Exception as e:
+        logger.error(
+            f"Failed to validate preview user with error: {e}",
+            exc_info=True,
+        )
+        return {"statusCode": 500, "body": {"error": "Internal server error"}}

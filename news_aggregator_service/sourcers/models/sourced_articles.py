@@ -225,7 +225,7 @@ class SourcedArticle:
         )
 
     def _get_sourced_candidates_s3_object_prefix(self) -> str:
-        return f"sourced_candidate_articles/{self.publishing_date_str}/{self.topic_id}/{self.sourced_article_id}"
+        return f"sourced_candidate_articles/{self.topic_id}/{self.publishing_date_str}/{self.sourced_article_id}"
 
     def _get_sourced_candidate_article_s3_object_key(self) -> str:
         return f"{self._get_sourced_candidates_s3_object_prefix()}/{self.sourced_article_id}{self.sourced_candidate_articles_s3_extension}"

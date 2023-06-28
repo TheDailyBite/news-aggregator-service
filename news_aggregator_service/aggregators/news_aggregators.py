@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import json
 import os
 import time
+import urllib.parse
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -396,8 +397,9 @@ class BingAggregator(AggregatorInterface):
         page = self.start_page
         data_timeframe = self._get_data_timeframe(start_time, end_time)
         aggregator_mapped_category = self.category_mapper.get_category(category)
+        topic = urllib.parse.quote_plus(topic)
         logger.info(
-            f"Retrieving a max of {fetched_articles_count} news articles results for search term: {topic}, requested category: {category} (mapped category {aggregator_mapped_category}) and timeframe: {data_timeframe}..."
+            f"Retrieving a max of {fetched_articles_count} news articles results for url encoded search term: {topic}, requested category: {category} (mapped category {aggregator_mapped_category}) and timeframe: {data_timeframe}..."
         )
         # currently we use the url only to check for duplicates
         unique_articles_db: set[str] = set()
@@ -648,6 +650,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
         page = self.start_page
         data_from_date, data_to_date = self._get_data_timeframe(start_time, end_time)
         aggregator_mapped_category = self.category_mapper.get_category(category)
+        topic = urllib.parse.quote_plus(topic)
         logger.info(
             f"Retrieving a max of {fetched_articles_count} news articles results for search term: {topic}, requested category: {category} (mapped category {aggregator_mapped_category}) and timeframe: {data_from_date} - {data_to_date}..."
         )

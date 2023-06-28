@@ -42,7 +42,7 @@ huggingface_hub = "^0.15.1"
 tenacity = "^8.2.2"
 scikit-learn = "^1.2.2"
 typer = "^0.9.0"
-news_aggregator_data_access_layer = { git = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git", branch = "main" }
+news_aggregator_data_access_layer = { git = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git", branch = "changes" } # TODO - change to main
 
 
 [tool.poetry.dev-dependencies]

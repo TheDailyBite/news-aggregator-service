@@ -186,7 +186,7 @@ from news_aggregator_service.constants import (
 )
 bing = BingAggregator()
 topic_id = "9910f34e-c25e-4667-8471-296f7bc60f62"
-topic = "Generative+AI"
+topic = "Generative AI"
 category = "science-and-technology"
 end_time = datetime.now(timezone.utc)
 start_time = end_time - timedelta(days=1)
@@ -205,7 +205,7 @@ from news_aggregator_service.constants import (
 )
 newsapiorg = NewsApiOrgAggregator()
 topic_id = "9910f34e-c25e-4667-8471-296f7bc60f62"
-topic = "Generative+AI"
+topic = "Generative AI"
 category = ""
 end_time = datetime.now(timezone.utc) - timedelta(days=2)
 start_time = end_time - timedelta(days=1)

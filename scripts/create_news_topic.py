@@ -1,5 +1,4 @@
 import sys
-import urllib.parse
 
 # caution: path[0] is reserved for script path (or '' in REPL)
 # this is to make news_aggregator_service available
@@ -24,11 +23,12 @@ def news_topic_exists(topic: str, category: str) -> bool:
     return False
 
 
-def main(
+def create_news_topic(
     topic: str,
     category: str,
     max_aggregator_results: int,
     daily_publishing_limit: int = DEFAULT_DAILY_PUBLISHING_LIMIT,
+    topic_id: str = None,
 ) -> str:
     try:
         topic = topic.lower()
@@ -37,9 +37,6 @@ def main(
             raise ValueError(
                 f"Category {category} is not supported. Supported categories: {SUPPORTED_AGGREGATION_CATEGORIES}"
             )
-        input_topic = topic
-        topic = urllib.parse.quote_plus(topic)
-        print(f"Url encoded topic: {topic} from original input topic {input_topic}")
         if max_aggregator_results <= 0:
             raise ValueError(
                 f"max_aggregator_results must be greater than 0. Got {max_aggregator_results}"
@@ -49,7 +46,8 @@ def main(
         print(
             f"Creating news topic with topic: {topic}, category: {category}, max aggregator results: {max_aggregator_results}, daily publishing limit: {daily_publishing_limit}"
         )
-        topic_id = get_uuid4_attribute()
+        if topic_id is None:
+            topic_id = get_uuid4_attribute()
         news_topic = NewsTopics(
             topic_id=topic_id,
             topic=topic,
@@ -70,4 +68,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    typer.run(create_news_topic)

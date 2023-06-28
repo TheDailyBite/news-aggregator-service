@@ -3,7 +3,7 @@ from news_aggregator_data_access_layer.constants import NewsAggregatorsEnum
 from news_aggregator_data_access_layer.models.dynamodb import NewsAggregators
 
 
-def main(news_aggs: list[str]) -> None:
+def initialize_news_aggregators(news_aggs: list[str]) -> None:
     try:
         print(f"News aggregators specified: {news_aggs}. Will convert to corresponding enum value.")
         news_aggs = [
@@ -24,4 +24,4 @@ def main(news_aggs: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    typer.run(initialize_news_aggregators)

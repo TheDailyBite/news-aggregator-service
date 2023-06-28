@@ -4,11 +4,12 @@ services:
     image: amazon/dynamodb-local:latest
     container_name: dynamodb-local
     ports:
-      - "8000:8000"
+      - "8002:8002"
     environment:
       - AWS_ACCESS_KEY_ID=accesskey
       - AWS_SECRET_ACCESS_KEY=secretkey
       - AWS_DEFAULT_REGION=us-west-1
+    command: -jar DynamoDBLocal.jar -port 8002
 
   s3-local:
     image: minio/minio
@@ -35,33 +36,127 @@ services:
     ports:
       - "8001:8001"
     environment:
-      DYNAMO_ENDPOINT: "http://dynamodb-local:8000"
+      DYNAMO_ENDPOINT: "http://dynamodb-local:8002"
       AWS_REGION: "us-west-1"
       AWS_ACCESS_KEY_ID: accesskey
       AWS_SECRET_ACCESS_KEY: secretkey
     depends_on:
       - dynamodb-local
 
-  news-aggregator-service:
+  # news-aggregator-service:
+  #   image: news-aggregator-service:latest-lambda-x86_64
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     DYNAMO_ENDPOINT: "http://dynamodb-local:8002"
+  #     AWS_REGION: "us-west-1"
+  #     AWS_ACCESS_KEY_ID: accesskey
+  #     AWS_SECRET_ACCESS_KEY: secretkey
+  #     REGION_NAME: "us-west-1"      
+  #     DYNAMODB_HOST: "http://dynamodb-local:8002"
+  #     S3_ENDPOINT_URL: "http://s3-local:9000"
+      
+  #   env_file:
+  #     - secret-envs.env
+  #   command: "app.aggregation_scheduler"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 512M
+  #   depends_on:
+  #     - dynamodb-local
+  #     - s3-local    
+
+  news-aggregator-service-login:
     image: news-aggregator-service:latest-lambda-x86_64
     ports:
       - "8080:8080"
     environment:
-      DYNAMO_ENDPOINT: "http://dynamodb-local:8000"
+      DYNAMO_ENDPOINT: "http://dynamodb-local:8002"
       AWS_REGION: "us-west-1"
       AWS_ACCESS_KEY_ID: accesskey
       AWS_SECRET_ACCESS_KEY: secretkey
       REGION_NAME: "us-west-1"      
-      DYNAMODB_HOST: "http://dynamodb-local:8000"
+      DYNAMODB_HOST: "http://dynamodb-local:8002"
       S3_ENDPOINT_URL: "http://s3-local:9000"
       
     env_file:
       - secret-envs.env
-    command: "app.aggregate_bing_news_self"
+    command: "app.validate_preview_user"
     deploy:
       resources:
         limits:
           memory: 512M
     depends_on:
       - dynamodb-local
-      - s3-local    
+      - s3-local          
+
+  news-aggregator-service-get-news-topics:
+    image: news-aggregator-service:latest-lambda-x86_64
+    ports:
+      - "8082:8080"
+    environment:
+      DYNAMO_ENDPOINT: "http://dynamodb-local:8002"
+      AWS_REGION: "us-west-1"
+      AWS_ACCESS_KEY_ID: accesskey
+      AWS_SECRET_ACCESS_KEY: secretkey
+      REGION_NAME: "us-west-1"      
+      DYNAMODB_HOST: "http://dynamodb-local:8002"
+      S3_ENDPOINT_URL: "http://s3-local:9000"
+      
+    env_file:
+      - secret-envs.env
+    command: "app.get_news_topics"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      - dynamodb-local
+      - s3-local 
+
+  news-aggregator-service-subscribe-news-topics:
+    image: news-aggregator-service:latest-lambda-x86_64
+    ports:
+      - "8083:8080"
+    environment:
+      DYNAMO_ENDPOINT: "http://dynamodb-local:8002"
+      AWS_REGION: "us-west-1"
+      AWS_ACCESS_KEY_ID: accesskey
+      AWS_SECRET_ACCESS_KEY: secretkey
+      REGION_NAME: "us-west-1"      
+      DYNAMODB_HOST: "http://dynamodb-local:8002"
+      S3_ENDPOINT_URL: "http://s3-local:9000"
+      
+    env_file:
+      - secret-envs.env
+    command: "app.subscribe_news_topics"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      - dynamodb-local
+      - s3-local                
+
+
+  the_daily_bite_web_app:
+    image: the_daily_bite_web_app:latest
+    ports:
+      - "3000:3000"
+      - "8000:8000"
+    command: "pc run --env prod"
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: "3"    
+    environment:
+      NEWS_SERVICE_LOGIN_URL: "http://news-aggregator-service-login:8080"
+      USER_LOGIN_FUNCTION_NAME: "function"
+      NEWS_SERVICE_GET_NEWS_TOPICS_URL: "http://news-aggregator-service-get-news-topics:8080"
+      GET_NEWS_TOPICS_FUNCTION_NAME: "function"
+      NEWS_SERVICE_SUBSCRIBE_NEWS_TOPICS_URL: "http://news-aggregator-service-subscribe-news-topics:8080"
+      SUBSCRIBE_NEWS_TOPICS_FUNCTION_NAME: "function"
+      LOCAL_TESTING: "true"
+      REGION_NAME: "us-west-1"

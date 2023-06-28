@@ -16,7 +16,7 @@ from news_aggregator_data_access_layer.models.dynamodb import (
 from news_aggregator_data_access_layer.utils.s3 import get_object
 
 
-def main():
+def review_pending_articles():
     article_skipped = 0
     articles_published = 0
     articles_rejected = 0
@@ -152,4 +152,4 @@ Articles rejected: {articles_rejected}
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    typer.run(review_pending_articles)
