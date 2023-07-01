@@ -40,7 +40,7 @@ openai = "^0.27.8"
 tiktoken = "^0.3.3"
 huggingface_hub = "^0.15.1"
 tenacity = "^8.2.2"
-scikit-learn = "^1.2.2"
+scikit-learn = "^1.3.0"
 typer = "^0.9.0"
 news_aggregator_data_access_layer = { git = "git@github.com:TheDailyBite/news-aggregator-data-access-layer.git", branch = "main" }
 
