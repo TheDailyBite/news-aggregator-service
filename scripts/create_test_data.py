@@ -85,47 +85,52 @@ def create_test_data():
     print(f"Creating preview user with id {user_id}...")
     PreviewUsers(user_id=user_id, name="Michael the Admin").save()
     print("Creating news topics...")
-    topic_id = "e63037e4-f815-4d96-ac99-12381ed7fcca"
-    topic = "Generative AI"
-    print(f"Creating news topic with id {topic_id} and topic {topic}...")
-    news_topic = NewsTopics(
-        topic_id=topic_id,
-        topic=topic,
-        category="",
-        is_active=True,
-        is_published=True,
-        date_created=datetime(2023, 6, 7, tzinfo=timezone.utc),
-        max_aggregator_results=25,
-        daily_publishing_limit=10,
-        last_publishing_date=datetime(2023, 6, 8, tzinfo=timezone.utc),
-    )
-    news_topic.save()
-    article_prefixes = get_article_prefixes("test_data/sourced_articles/")
-    for article_prefix in article_prefixes:
-        article = read_objects_from_prefix_with_extension(
-            SOURCED_ARTICLES_S3_BUCKET, article_prefix, ".json"
-        )[0][1]
-        article = json.loads(article)
-        sourced_article = SourcedArticles(
+    topics = [
+        ("e63037e4-f815-4d96-ac99-12381ed7fcca", "Generative AI"),
+        ("e63037e4-f815-4d96-ac99-12381ed7fccc", "Quantum Computing"),
+    ]
+    for topic_id, topic in topics:
+        print(f"Creating news topic with id {topic_id} and topic {topic}...")
+        news_topic = NewsTopics(
             topic_id=topic_id,
-            sourced_article_id=article["article_id"],
-            dt_sourced=datetime(2023, 6, 8, 19, 59, 52, tzinfo=timezone.utc),
-            dt_published=datetime(2023, 6, 8, 19, 59, 52, tzinfo=timezone.utc),
-            date_published="2023/06/08",
-            title=article["article_title"],
-            topic=article["article_topic"],
-            source_article_ids=article["source_article_ids"],
-            source_article_urls=article["source_article_urls"],
-            providers=article["source_article_provider_domains"],
-            article_approval_status=ArticleApprovalStatus.APPROVED,
-            short_summary_ref=article_prefix + "Short_summary.txt",
-            medium_summary_ref=article_prefix + "Medium_summary.txt",
-            full_summary_ref=article_prefix + "Full_summary.txt",
-            sourcing_run_id="somerunid",
-            article_processing_cost=0.52,
+            topic=topic,
+            is_active=True,
+            is_published=True,
+            date_created=datetime(2023, 6, 7, tzinfo=timezone.utc),
+            max_aggregator_results=25,
+            daily_publishing_limit=10,
+            last_publishing_date=datetime(2023, 6, 8, tzinfo=timezone.utc),
         )
-        print(f"Creating sourced article with id {article['article_id']}...")
-        sourced_article.save()
+        news_topic.save()
+        article_prefixes = get_article_prefixes("test_data/sourced_articles/")
+        for article_prefix in article_prefixes:
+            article = read_objects_from_prefix_with_extension(
+                SOURCED_ARTICLES_S3_BUCKET, article_prefix, ".json"
+            )[0][1]
+            article = json.loads(article)
+            if article_prefix[-1] != "/":
+                article_prefix += "/"
+            sourced_article = SourcedArticles(
+                topic_id=article["article_topic_id"],
+                sourced_article_id=article["article_id"],
+                dt_sourced=datetime(2023, 6, 8, 19, 59, 52, tzinfo=timezone.utc),
+                dt_published=datetime(2023, 6, 8, 19, 59, 52, tzinfo=timezone.utc),
+                date_published="2023/06/08",
+                title=article["article_title"],
+                topic=article["article_topic"],
+                source_article_categories=article["source_article_categories"],
+                source_article_ids=article["source_article_ids"],
+                source_article_urls=article["source_article_urls"],
+                providers=article["source_article_provider_domains"],
+                article_approval_status=ArticleApprovalStatus.APPROVED,
+                short_summary_ref=article_prefix + "Short_summary.txt",
+                medium_summary_ref=article_prefix + "Medium_summary.txt",
+                full_summary_ref=article_prefix + "Full_summary.txt",
+                sourcing_run_id="somerunid",
+                article_processing_cost=0.52,
+            )
+            print(f"Creating sourced article with id {article['article_id']}...")
+            sourced_article.save()
 
 
 if __name__ == "__main__":

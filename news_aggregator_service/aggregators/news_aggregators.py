@@ -14,7 +14,7 @@ import requests
 from news_aggregator_data_access_layer.assets.news_assets import CandidateArticles, RawArticle
 from news_aggregator_data_access_layer.config import S3_ENDPOINT_URL
 from news_aggregator_data_access_layer.constants import (
-    ALL_CATEGORIES_STR,
+    NO_CATEGORY_STR,
     AggregatorRunStatus,
     NewsAggregatorsEnum,
     ResultRefTypes,
@@ -56,7 +56,6 @@ from news_aggregator_service.constants import (
     THE_NEWS_API_COM_CATEGORIES_MAPPER,
     THE_NEWS_API_COM_PUBLISHED_DATE_REGEX,
 )
-from news_aggregator_service.exceptions import UnsupportedCategoryException
 from news_aggregator_service.utils.secrets import get_secret
 from news_aggregator_service.utils.telemetry import setup_logger
 
@@ -69,7 +68,6 @@ class AggregatorInterface(ABC):
         self,
         topic_id: str,
         topic: str,
-        category: str,
         start_time: datetime,
         end_time: datetime,
         sorting: str,
@@ -83,7 +81,6 @@ class AggregatorInterface(ABC):
         self,
         topic_id: str,
         topic: str,
-        category: str,
         start_time: datetime,
         end_time: datetime,
         max_aggregator_results: int,
@@ -96,12 +93,6 @@ class AggregatorInterface(ABC):
             raise ValueError(
                 f"max_aggregator_results must be a positive integer, got: {max_aggregator_results}"
             )
-        if not self.is_category_supported(category):
-            failure_message = (
-                f"Category {category} is not supported by aggregator {self.aggregator_id}"
-            )
-            logger.warning(failure_message)
-            raise UnsupportedCategoryException(failure_message)
         aggregator_run = AggregatorRuns(
             aggregation_start_date=aggregation_start_date,
             aggregation_run_id=get_uuid4_attribute(),
@@ -121,7 +112,6 @@ class AggregatorInterface(ABC):
             ) = self.get_candidates_for_topic(
                 topic_id,
                 topic,
-                category,
                 start_time,
                 end_time,
                 self.sorting,
@@ -130,12 +120,11 @@ class AggregatorInterface(ABC):
                 trusted_news_providers,
             )
             logger.info(
-                f"Found {len(candidates_for_topic)} candidates for topic: {topic} and requested category: {category} for timeframe {start_time} - {end_time}. Start published date of aggregated articles: {start_published_dt}, End published date: {end_published_dt}"
+                f"Found {len(candidates_for_topic)} candidates for topic: {topic} for timeframe {start_time} - {end_time}. Start published date of aggregated articles: {start_published_dt}, End published date: {end_published_dt}"
             )
             aggregation_result = AggregationResults(
                 articles_aggregated_count=len(candidates_for_topic),
                 topic=topic,
-                requested_category=category,
                 data_start_time=start_published_dt.isoformat(),
                 data_end_time=end_published_dt.isoformat(),
                 sorting=self.sorting,
@@ -163,7 +152,7 @@ class AggregatorInterface(ABC):
             return aggregation_result, end_published_dt
         except Exception as e:
             logger.error(
-                f"Error while aggregating news with aggregator {self.aggregator_id} for topic: {topic} and category: {category} and timeframe {start_time} - {end_time}: {e}",
+                f"Error while aggregating news with aggregator {self.aggregator_id} for topic: {topic} and timeframe {start_time} - {end_time}: {e}",
                 exc_info=True,
             )
             aggregator_run.update(
@@ -180,8 +169,6 @@ class AggregatorInterface(ABC):
         candidates: list[Any],
         topic_id: str,
         topic: str,
-        requested_category: str,
-        mapped_requested_category: str,
         start_time: datetime,
         end_time: datetime,
         sorting: str,
@@ -209,9 +196,6 @@ class AggregatorInterface(ABC):
     @abstractmethod
     def historical_articles_days_ago_start(self):
         pass
-
-    def is_category_supported(self, category: str) -> bool:
-        return self.category_mapper.get_category(category) is not None
 
     def generate_article_id(
         self,
@@ -306,8 +290,6 @@ class BingAggregator(AggregatorInterface):
         candidates: list[Any],
         topic_id: str,
         topic: str,
-        requested_category: str,
-        mapped_requested_category: str,
         start_time: datetime,
         end_time: datetime,
         sorting: str,
@@ -326,19 +308,6 @@ class BingAggregator(AggregatorInterface):
         for article in candidates:
             if len(aggregated_articles) >= max_aggregator_results:
                 break
-            # we have observed that a request for a specific category may return articles with a different category
-            # we filter them out currently
-            # NOTE - we may need special treatment in the future when non parent category is requested
-            # as this may still return a child category which we don't want to filter out
-            # see: https://learn.microsoft.com/en-us/bing/search-apis/bing-news-search/reference/topic-parameters#news-categories-by-market
-            if (
-                mapped_requested_category != ALL_CATEGORIES_STR
-                and article.category != mapped_requested_category
-            ):
-                logger.info(
-                    f"Article with url: {article.url} has category {article.category} which is different than the mapped requested category {mapped_requested_category}, skipping..."
-                )
-                continue
             standardized_published_date = generate_standardized_published_date(
                 getattr(article, self.published_date_attr_name), self.published_date_regex
             )
@@ -361,8 +330,7 @@ class BingAggregator(AggregatorInterface):
                 aggregation_index=article_idx,
                 topic_id=topic_id,
                 topic=topic,
-                requested_category=requested_category,
-                category=article.category,
+                category=self.category_mapper.get_category(article.category),
                 title=article.name,
                 url=article.url,
                 article_data=article.json(),
@@ -383,7 +351,6 @@ class BingAggregator(AggregatorInterface):
         self,
         topic_id: str,
         topic: str,
-        category: str,
         start_time: datetime,
         end_time: datetime,
         sorting: str,
@@ -396,10 +363,9 @@ class BingAggregator(AggregatorInterface):
         total_estimated_matches = 0
         page = self.start_page
         data_timeframe = self._get_data_timeframe(start_time, end_time)
-        aggregator_mapped_category = self.category_mapper.get_category(category)
         topic = urllib.parse.quote_plus(topic)
         logger.info(
-            f"Retrieving a max of {fetched_articles_count} news articles results for url encoded search term: {topic}, requested category: {category} (mapped category {aggregator_mapped_category}) and timeframe: {data_timeframe}..."
+            f"Retrieving a max of {fetched_articles_count} news articles results for url encoded search term: {topic}) and timeframe: {data_timeframe}..."
         )
         # currently we use the url only to check for duplicates
         unique_articles_db: set[str] = set()
@@ -421,8 +387,6 @@ class BingAggregator(AggregatorInterface):
                 offset=offset,
                 count=self.max_articles_per_request,
             )
-            if aggregator_mapped_category != ALL_CATEGORIES_STR:
-                params.category = aggregator_mapped_category
             # Send API request
             response = requests.get(
                 self.search_url,
@@ -475,8 +439,6 @@ class BingAggregator(AggregatorInterface):
             candidates,
             topic_id,
             topic,
-            category,
-            aggregator_mapped_category,
             start_time,
             end_time,
             sorting,
@@ -570,8 +532,6 @@ class NewsApiOrgAggregator(AggregatorInterface):
         candidates: list[Any],
         topic_id: str,
         topic: str,
-        requested_category: str,
-        mapped_requested_category: str,
         start_time: datetime,
         end_time: datetime,
         sorting: str,
@@ -614,7 +574,6 @@ class NewsApiOrgAggregator(AggregatorInterface):
                 aggregation_index=article_idx,
                 topic_id=topic_id,
                 topic=topic,
-                requested_category=requested_category,
                 title=article.title,
                 url=article.url,
                 author=article.author,
@@ -637,7 +596,6 @@ class NewsApiOrgAggregator(AggregatorInterface):
         self,
         topic_id: str,
         topic: str,
-        category: str,
         start_time: datetime,
         end_time: datetime,
         sorting: str,
@@ -649,10 +607,9 @@ class NewsApiOrgAggregator(AggregatorInterface):
         total_matches = 0
         page = self.start_page
         data_from_date, data_to_date = self._get_data_timeframe(start_time, end_time)
-        aggregator_mapped_category = self.category_mapper.get_category(category)
         topic = urllib.parse.quote_plus(topic)
         logger.info(
-            f"Retrieving a max of {fetched_articles_count} news articles results for search term: {topic}, requested category: {category} (mapped category {aggregator_mapped_category}) and timeframe: {data_from_date} - {data_to_date}..."
+            f"Retrieving a max of {fetched_articles_count} news articles results for search term: {topic}) and timeframe: {data_from_date} - {data_to_date}..."
         )
         # currently we use the url only to check for duplicates
         unique_articles_db: set[str] = set()
@@ -733,8 +690,6 @@ class NewsApiOrgAggregator(AggregatorInterface):
             candidates,
             topic_id,
             topic,
-            category,
-            aggregator_mapped_category,
             start_time,
             end_time,
             sorting,

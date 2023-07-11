@@ -8,8 +8,8 @@ import pytest
 from langchain.embeddings import OpenAIEmbeddings
 from news_aggregator_data_access_layer.assets.news_assets import RawArticle
 from news_aggregator_data_access_layer.constants import (
-    ALL_CATEGORIES_STR,
     DATE_SORTING_STR,
+    NO_CATEGORY_STR,
     RELEVANCE_SORTING_STR,
 )
 from news_aggregator_data_access_layer.utils.s3 import (
@@ -73,7 +73,6 @@ def test_sourced_article_init():
         TEST_DT_1_STR,
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
-        ALL_CATEGORIES_STR,
         TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )
@@ -82,7 +81,6 @@ def test_sourced_article_init():
     assert sourced_article.publishing_date_str == TEST_DT_1_STR
     assert sourced_article.topic_id == TEST_TOPIC_IDS[0]
     assert sourced_article.topic == TEST_TOPICS[0]
-    assert sourced_article.requested_category == ALL_CATEGORIES_STR
     assert sourced_article.s3_client == test_s3_client
     assert sourced_article.full_article_summary is None
     assert sourced_article.medium_article_summary is None
@@ -116,7 +114,6 @@ def test_sourced_article__chunk_text_in_docs_same_docs_equal():
         TEST_DT_1_STR,
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
-        ALL_CATEGORIES_STR,
         TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )
@@ -154,7 +151,6 @@ def test_sourced_article__chunk_text_in_docs_same_docs_unequal():
         TEST_DT_1_STR,
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
-        ALL_CATEGORIES_STR,
         TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )
@@ -190,7 +186,6 @@ def test_sourced_article__chunk_text_in_docs_different_docs():
         TEST_DT_1_STR,
         TEST_TOPIC_IDS[0],
         TEST_TOPICS[0],
-        ALL_CATEGORIES_STR,
         TEST_SOURCING_RUN_ID,
         s3_client=test_s3_client,
     )

@@ -101,7 +101,7 @@ class SourcedArticleRef(BaseModel):
     article_dt_published: str
     article_topic_id: str
     article_topic: str
-    article_requested_category: str
+    source_article_categories: list[str]
     source_article_ids: list[str]
     source_article_urls: list[str]
     source_article_provider_domains: list[str]
@@ -115,7 +115,6 @@ class SourcedArticle:
         publishing_date_str: str,
         topic_id: str,
         topic: str,
-        requested_category: str,
         sourcing_run_id: str,
         s3_client: boto3.client = boto3.client(
             service_name="s3", region_name=REGION_NAME, endpoint_url=S3_ENDPOINT_URL
@@ -136,6 +135,7 @@ class SourcedArticle:
         logger.info(
             f"Computed Sourced article published dt will be {self.sourced_article_published_dt} as the min of {self.article_cluster_dts_published}"
         )
+        self.source_article_categories = [article.category for article in self.article_cluster]
         self.source_article_ids = [article.article_id for article in self.article_cluster]
         self.source_article_urls = [article.url for article in self.article_cluster]
         self.source_article_provider_domains = [
@@ -146,7 +146,6 @@ class SourcedArticle:
         self.publishing_date_str = publishing_date_str
         self.topic_id = topic_id
         self.topic = topic
-        self.requested_category = requested_category
         self.sourcing_run_id = sourcing_run_id
         self.s3_client = s3_client
         self.sourced_candidate_articles_s3_extension = ".json"
@@ -236,31 +235,37 @@ class SourcedArticle:
         return f"{self._get_sourced_candidates_s3_object_prefix()}/{summarization_length.value}{self.summarization_suffix}{self.summary_s3_extension}"
 
     def process_article(self) -> float:
-        logger.info(f"Processing article with sourced article id {self.sourced_article_id}")
-        article_processing_cost = 0.0
-        self.title, cost = self._generate_article_title()
-        article_processing_cost += cost
-        # create article summaries
-        self.full_article_summary, cost = self._summarize_article(
-            summarization_length=SummarizationLength.FULL
-        )
-        article_processing_cost += cost
-        self.medium_article_summary, cost = self._summarize_article(
-            summarization_length=SummarizationLength.MEDIUM
-        )
-        article_processing_cost += cost
-        self.short_article_summary, cost = self._summarize_article(
-            summarization_length=SummarizationLength.SHORT
-        )
-        article_processing_cost += cost
-        # TODO -
-        # create embedding?
-        # find out clustered topic using BertTopic?
-        # find out sentiment?
-        # More?
-        self.is_processed = True
-        self.article_processing_cost = article_processing_cost
-        return article_processing_cost
+        try:
+            logger.info(f"Processing article with sourced article id {self.sourced_article_id}")
+            article_processing_cost = 0.0
+            self.title, cost = self._generate_article_title()
+            article_processing_cost += cost
+            # create article summaries
+            self.full_article_summary, cost = self._summarize_article(
+                summarization_length=SummarizationLength.FULL
+            )
+            article_processing_cost += cost
+            self.medium_article_summary, cost = self._summarize_article(
+                summarization_length=SummarizationLength.MEDIUM
+            )
+            article_processing_cost += cost
+            self.short_article_summary, cost = self._summarize_article(
+                summarization_length=SummarizationLength.SHORT
+            )
+            article_processing_cost += cost
+            # TODO -
+            # create embedding?
+            # find out clustered topic using BertTopic?
+            # find out sentiment?
+            # More?
+            self.is_processed = True
+            self.article_processing_cost = article_processing_cost
+            return article_processing_cost
+        except Exception as e:
+            logger.error(
+                f"Error processing article {self.sourced_article_id}: {e}. Source article ids: {self.source_article_ids}"
+            )
+            raise
 
     def store_article(self):
         logger.info(f"Storing article {self.sourced_article_id}")
@@ -289,7 +294,7 @@ class SourcedArticle:
             article_dt_published=self.sourced_article_published_dt.isoformat(),
             article_topic_id=self.topic_id,
             article_topic=self.topic,
-            article_requested_category=self.requested_category,
+            source_article_categories=self.source_article_categories,
             source_article_ids=self.source_article_ids,
             source_article_urls=self.source_article_urls,
             source_article_provider_domains=self.source_article_provider_domains,
@@ -334,6 +339,7 @@ class SourcedArticle:
             date_published=self.publishing_date_str,
             title=self.title,
             topic=self.topic,
+            source_article_categories=self.source_article_categories,
             source_article_ids=self.source_article_ids,
             source_article_urls=self.source_article_urls,
             providers=self.source_article_provider_domains,

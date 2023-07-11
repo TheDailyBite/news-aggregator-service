@@ -35,7 +35,7 @@ def review_pending_articles():
         print(
             f"""
 We will now evaluate article {article.sourced_article_id} for topic id {topic.topic_id}.
-Topic name: {topic.topic} and category {topic.category if topic.category else "No category"}
+Topic name: {topic.topic}
 
 What we will be evaluation is the quality of the sourced article primarily for the title, short, medium, and full summaries.
 

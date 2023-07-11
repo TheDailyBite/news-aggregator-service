@@ -36,7 +36,6 @@ class NaiveSourcer:
         self,
         topic_id: str,
         topic: str,
-        category: str,
         top_k: int,
         sourcing_date: datetime,
         daily_publishing_limit: int,
@@ -46,7 +45,6 @@ class NaiveSourcer:
     ):
         self.topic_id = topic_id
         self.topic = topic
-        self.category = category
         self.top_k = top_k
         self.sourcing_date = sourcing_date
         self.sourcing_date_str = dt_to_lexicographic_date_s3_prefix(sourcing_date)
@@ -106,7 +104,6 @@ class NaiveSourcer:
                 self.sourcing_date_str,
                 self.topic_id,
                 self.topic,
-                self.category,
                 sourcing_run_id,
                 self.s3_client,
             )

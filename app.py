@@ -5,11 +5,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 import boto3
-from news_aggregator_data_access_layer.constants import (
-    ALL_CATEGORIES_STR,
-    SUPPORTED_AGGREGATION_CATEGORIES,
-    NewsAggregatorsEnum,
-)
+from news_aggregator_data_access_layer.constants import NewsAggregatorsEnum
 from news_aggregator_data_access_layer.models.dynamodb import (
     NewsAggregators,
     NewsTopics,
@@ -34,10 +30,7 @@ from news_aggregator_service.config import (
     NEWS_AGGREGATION_QUEUE_NAME,
     NEWS_SOURCING_QUEUE_NAME,
 )
-from news_aggregator_service.exceptions import (
-    PreviewUserNotExistsException,
-    UnsupportedCategoryException,
-)
+from news_aggregator_service.exceptions import PreviewUserNotExistsException
 
 create_tables()
 
@@ -126,12 +119,6 @@ def aggregation_scheduler(event, context):
                 logger.info(f"Skipping inactive news topic {news_topic.topic_id}")
                 continue
             for aggregator_id in aggregators:
-                agg = fetch_aggregator(aggregator_id)
-                if not agg.is_category_supported(news_topic.category):
-                    logger.info(
-                        f"Skipping aggregator {aggregator_id} for news topic {news_topic.topic_id} because category {news_topic.category} is not supported"
-                    )
-                    continue
                 aggregation_data_start_dt, aggregation_data_end_dt = get_aggregation_timeframe(
                     news_topic, aggregator_id
                 )
@@ -262,26 +249,19 @@ def aggregate_news_topic(event, context):
         max_aggregator_results = news_topic.max_aggregator_results
         fetched_articles_count = max_aggregator_results * AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER
         logger.info(
-            f"Aggregating news from aggregator {aggregator_id} for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Max aggregator results {max_aggregator_results}"
+            f"Aggregating news from aggregator {aggregator_id} for topic id: {topic_id} (topic: {news_topic.topic}). Max aggregator results {max_aggregator_results}"
         )
         trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
         aggregator = fetch_aggregator(aggregator_id)
-        try:
-            aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
-                news_topic.topic_id,
-                news_topic.topic,
-                news_topic.category,
-                aggregation_data_start_dt,
-                aggregation_data_end_dt,
-                max_aggregator_results,
-                fetched_articles_count,
-                trusted_news_providers,
-            )
-        except UnsupportedCategoryException as e:
-            logger.info(
-                f"Aggregator {aggregator_id} does not support category {news_topic.category}. Skipping aggregation for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category})"
-            )
-            return {"statusCode": 200, "body": {"message": str(e)}}
+        aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
+            news_topic.topic_id,
+            news_topic.topic,
+            aggregation_data_start_dt,
+            aggregation_data_end_dt,
+            max_aggregator_results,
+            fetched_articles_count,
+            trusted_news_providers,
+        )
         update_news_topic_last_aggregation_dts(news_topic, aggregator_id, end_published_dt)
         results = aggregation_result.json()
         return {"statusCode": 200, "body": {"results": results}}
@@ -327,12 +307,11 @@ def source_news_topic(event, context):
         daily_publishing_limit = news_topic.daily_publishing_limit
         top_k = math.ceil(float(daily_publishing_limit) / daily_sourcing_frequency)
         logger.info(
-            f"Sourcing news for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Top k {top_k}."
+            f"Sourcing news for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic}). Top k {top_k}."
         )
         naive_sourcer = NaiveSourcer(
             topic_id,
             news_topic.topic,
-            news_topic.category,
             top_k,
             sourcing_date,
             daily_publishing_limit,
@@ -340,7 +319,7 @@ def source_news_topic(event, context):
         sourced_articles = naive_sourcer.source_articles()
         if not sourced_articles:
             logger.info(
-                f"No articles found for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Top k {top_k}."
+                f"No articles found for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic}). Top k {top_k}."
             )
             return {"statusCode": 200, "body": {"results": []}}
         naive_sourcer.store_articles()
@@ -363,129 +342,3 @@ def source_news_topic(event, context):
             exc_info=True,
         )
         return {"statusCode": 500, "body": {"error": str(e)}}
-
-
-def subscribe_news_topics(event, context):
-    try:
-        logger.info(f"Received event: {event}")
-        user_id = event.get("user_id", "")
-        if not user_id:
-            raise ValueError("user_id must be specified")
-        news_topics_to_unsubscribe = event.get("news_topics_to_unsubscribe", None)
-        if news_topics_to_unsubscribe is None:
-            raise ValueError("news_topics_to_unsubscribe must be specified")
-        news_topics_to_subscribe = event.get("news_topics_to_subscribe", None)
-        if news_topics_to_subscribe is None:
-            raise ValueError("news_topics_to_subscribe must be specified")
-        for topic_id in news_topics_to_unsubscribe:
-            logger.info(f"Unsubscribing user id {user_id} from topic id {topic_id}")
-            try:
-                UserTopicSubscriptions(user_id, topic_id).delete()
-            except Exception as e:
-                logger.error(
-                    f"Failed to unsubscribe user id {user_id} from topic id {topic_id} with error: {e}",
-                    exc_info=True,
-                )
-                # TODO - emit metric
-                continue
-        for topic_id in news_topics_to_subscribe:
-            logger.info(f"Subscribing user id {user_id} to topic id {topic_id}")
-            try:
-                UserTopicSubscriptions(
-                    user_id, topic_id, date_subscribed=get_current_dt_utc_attribute()
-                ).save()
-            except Exception as e:
-                logger.error(
-                    f"Failed to subscribe user id {user_id} to topic id {topic_id} with error: {e}",
-                    exc_info=True,
-                )
-                # TODO - emit metric
-                continue
-        return {"statusCode": 200, "body": {"message": "Success"}}
-    except ValueError as ve:
-        logger.error(
-            f"Failed to subscribe to news topics for user id {user_id} with error: {ve}",
-            exc_info=True,
-        )
-        return {"statusCode": 400, "body": {"error": "Invalid request"}}
-    except Exception as e:
-        logger.error(
-            f"Failed to subscribe to news topics for user id {user_id} with error: {e}",
-            exc_info=True,
-        )
-        return {"statusCode": 500, "body": {"error": "Internal server error"}}
-
-
-def get_news_topics(event, context):
-    try:
-        logger.info(f"Received event: {event}")
-        user_id = event.get("user_id", "")
-        if not user_id:
-            raise ValueError("user_id must be specified")
-        try:
-            user = PreviewUsers.get(user_id)
-        except PreviewUsers.DoesNotExist:
-            raise PreviewUserNotExistsException()
-        user_news_topics = UserTopicSubscriptions.query(user_id)
-        user_news_topic_ids = [user_news_topic.topic_id for user_news_topic in user_news_topics]
-        news_topics = NewsTopics.scan()
-        published_news_topics = [
-            {
-                "topic_id": news_topic.topic_id,
-                "topic": news_topic.topic,
-                "category": news_topic.category,
-                "last_publishing_date": news_topic.last_publishing_date.isoformat()
-                if news_topic.last_publishing_date
-                else "",
-                "is_user_subscribed": news_topic.topic_id in user_news_topic_ids,
-            }
-            for news_topic in news_topics
-            if news_topic.is_published
-        ]
-        return {"statusCode": 200, "body": {"results": published_news_topics}}
-    except ValueError as ve:
-        logger.error(
-            f"Failed to get news topics for user id {user_id} with error: {ve}",
-            exc_info=True,
-        )
-        return {"statusCode": 400, "body": {"error": "Invalid request"}}
-    except Exception as e:
-        logger.error(
-            f"Failed to get news topics for user id {user_id} with error: {e}",
-            exc_info=True,
-        )
-        return {"statusCode": 500, "body": {"error": "Internal server error"}}
-
-
-def validate_preview_user(event, context):
-    try:
-        logger.info(f"Received event: {event}")
-        user_id = event.get("user_id", "")
-        if not user_id:
-            raise ValueError("user_id must be specified")
-        try:
-            preview_user = PreviewUsers.get(user_id)
-            return {
-                "statusCode": 200,
-                "body": {"user_id": preview_user.user_id, "name": preview_user.name},
-            }
-        except PreviewUsers.DoesNotExist:
-            raise PreviewUserNotExistsException()
-    except ValueError as ve:
-        logger.error(
-            f"Failed to validate preview user with error: {ve}",
-            exc_info=True,
-        )
-        return {"statusCode": 400, "body": {"error": "Invalid request."}}
-    except PreviewUserNotExistsException as e:
-        logger.error(
-            f"Failed to validate preview user with error: {e}",
-            exc_info=True,
-        )
-        return {"statusCode": 401, "body": {"error": "Preview user does not exist."}}
-    except Exception as e:
-        logger.error(
-            f"Failed to validate preview user with error: {e}",
-            exc_info=True,
-        )
-        return {"statusCode": 500, "body": {"error": "Internal server error"}}

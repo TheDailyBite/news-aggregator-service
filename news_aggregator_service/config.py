@@ -23,7 +23,7 @@ PINECONE_API_KEY_SECRET_NAME = os.environ.get("PINECONE_API_KEY_SECRET_NAME", "p
 # this is a multiplier of the max aggregation results for the number of articles to fetch for each aggregator
 # this provides a buffer before validation and filtering is applied to the aggregated articles
 AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER = int(
-    os.environ.get("AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER", 4)
+    os.environ.get("AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER", 2)
 )
 # this is the approximate max number of articles to publish each day for each topic
 DEFAULT_DAILY_PUBLISHING_LIMIT = int(os.environ.get("DEFAULT_DAILY_PUBLISHING_LIMIT", 5))
