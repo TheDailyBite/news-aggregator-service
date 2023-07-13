@@ -83,7 +83,7 @@ We will utilize the SOURCE ARTICLE URLS to evaluate the quality of the generated
                         ]
                     )
                     print(
-                        f"Incrementing published articles item for topic {topic.topic_id} and published date {article.published_date} by 1."
+                        f"Incrementing published articles item for topic {topic.topic_id} and published date {article.date_published} by 1."
                     )
                     try:
                         published_article = PublishedArticles.get(

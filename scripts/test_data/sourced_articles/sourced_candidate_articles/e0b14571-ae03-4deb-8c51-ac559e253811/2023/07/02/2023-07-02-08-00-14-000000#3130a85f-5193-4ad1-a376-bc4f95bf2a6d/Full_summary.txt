@@ -1,0 +1,45 @@
+Last week's news, articles, interviews, and videos covered a range of topics in the cybersecurity space. Here are some highlights:
+
+- Ryan Woodley, CEO of Netcraft, emphasized the importance of monitoring, collecting, and analyzing internet data to gain a deeper understanding of the online landscape.
+
+- Dennis Fridrich, VP of Cybersecurity at TRIMEDX, discussed the hidden costs of cyberattacks on health systems and the role of insurers in promoting cybersecurity preparedness.
+
+- Brett Harris, Cybersecurity Officer for the Americas at Siemens Healthineers, explored the long-term impacts of cyberattacks on healthcare institutions and offered insights on protecting patients' personal data and medical devices.
+
+- Researchers from MDSec discovered an authentication bypass vulnerability in the Arcserve Unified Data Protection (UDP) solution, which could potentially compromise admin accounts. They have released a proof-of-concept exploit for this flaw.
+
+- The Lockbit 3.0 ransomware group was identified as the most active group, but newer groups like 8Base and Akira are also gaining prominence.
+
+- The compromise of PBI Research and The Berwyn Group's MOVEit installation resulted in the theft of data from pension systems and insurance companies, affecting millions of users.
+
+- Several free online cybersecurity courses were recommended, covering topics such as cryptography, network security, security awareness training, security operations, and application security.
+
+- Aaron Turner, SaaS CTO at Vectra AI, discussed the importance of hardening Microsoft 365 tenants to mitigate potential cloud attacks.
+
+- European organizations faced a higher volume and frequency of Business Email Compromise (BEC) attacks compared to their counterparts in the United States.
+
+- NetSPI's Attack Surface Management (ASM) platform was showcased, highlighting its ability to improve visibility and understanding of assets and exposures.
+
+- A survey revealed that 95% of respondents fear inadequate cloud security detection and response, despite their confidence in existing security tools and processes.
+
+- Fawaz Rasheed, Field CISO at VMware, discussed the role of cyber insurance in empowering Chief Information Security Officers (CISOs).
+
+- Orca Security highlighted the urgent need for comprehensive cloud security, as attackers can exploit exposed "secrets" within minutes.
+
+- Shane Shook, Venture Partner at Forgepoint Capital, shared insights on how data companies can stand out from the competition.
+
+- The total number of Distributed Denial of Service (DDoS) attacks worldwide increased significantly in 2022, posing a threat to digital infrastructure.
+
+- Mitja Kolsek, CEO at Acros Security, explained the concept of micropatches as a solution to security vulnerabilities.
+
+- Rezilion warned about the security risks associated with popular generative AI projects and open-source projects that utilize insecure generative AI.
+
+- A guide on Attack Surface Management (ASM) was provided, highlighting its role in discovering and prioritizing vulnerabilities.
+
+- New cybersecurity products from Cequence Security, Delinea, Index Engines, and NetApp were introduced.
+
+In addition to these highlights, it is important to note that family offices are increasingly becoming targets of cybersecurity attacks. According to Boston Private, over a quarter of family offices have experienced a cyberattack, with the majority of these attacks occurring within the last 12 months. Family offices face similar cybersecurity risks as other organizations, including phishing and ransomware attacks, data breaches, insider threats, and third-party risks. The emergence of generative AI has introduced new threat vectors, with hackers utilizing deep fakes and sophisticated phishing/vishing attacks.
+
+To protect themselves, family offices should prioritize cybersecurity measures and seek external expertise. Large single family offices have the resources to create dedicated security departments and infrastructure for effective data protection. Employing best practices, conducting vulnerability tests, implementing protective measures, and continuously monitoring the organization's security framework are vital for robust cybersecurity. Family offices should also consider external audits and processes to ensure long-term safeguarding.
+
+By investing in cybersecurity measures and conducting vulnerability tests, family offices can mitigate risks and avoid costly breaches. It is crucial for family offices to prioritize digital security and seek external expertise to ensure the protection of their sensitive information and assets.

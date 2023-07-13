@@ -49,6 +49,7 @@ from news_aggregator_service.config import (
     FAKE_OPENAI_API_KEY,
     HUGGINGFACE_API_KEY,
     HUGGINGFACE_API_KEY_SECRET_NAME,
+    LONG_SUMMARIZATION_MODEL_NAME,
     OPENAI_API_KEY,
     OPENAI_API_KEY_SECRET_NAME,
     SUMMARIZATION_MODEL_NAME,
@@ -165,6 +166,13 @@ class SourcedArticle:
             openai_api_key=openai_api_key,
             temperature=SUMMARIZATION_TEMPERATURE,
         )  # type: ignore
+        self.summarization_open_ai = summarization_open_ai
+        long_summarization_open_ai = ChatOpenAI(
+            model_name=LONG_SUMMARIZATION_MODEL_NAME,
+            openai_api_key=openai_api_key,
+            temperature=SUMMARIZATION_TEMPERATURE,
+        )  # type: ignore
+        self.long_summarization_open_ai = long_summarization_open_ai
         # summarization stuff
         summarization_prompt_template = SUMMARIZATION_TEMPLATE.replace("####topic####", self.topic)
         self._medium_summarization_prompt_template = PromptTemplate(
@@ -205,7 +213,13 @@ class SourcedArticle:
             input_variables=["existing_answer", "text"],
         )
         self._rewrite_refine_llm_chain = load_summarize_chain(
-            summarization_open_ai,
+            self.summarization_open_ai,
+            chain_type="refine",
+            question_prompt=self._refine_rewrite_prompt_template,
+            refine_prompt=self._refine_rewrite_refine_step_prompt_template,
+        )
+        self._rewrite_long_refine_llm_chain = load_summarize_chain(
+            self.long_summarization_open_ai,
             chain_type="refine",
             question_prompt=self._refine_rewrite_prompt_template,
             refine_prompt=self._refine_rewrite_refine_step_prompt_template,
@@ -401,14 +415,23 @@ class SourcedArticle:
     def _summarize_article(self, summarization_length: SummarizationLength) -> tuple[str, float]:
         article_cluster_texts = [article.get_article_text() for article in self.article_cluster]
         if summarization_length == SummarizationLength.FULL:
-            # simply rewrite the article instead of summarizing
-            chain = self._rewrite_refine_llm_chain
+            token_counts = []
+            for article_text in article_cluster_texts:
+                tokens = self.long_summarization_open_ai.get_token_ids(article_text)
+                token_counts.append(len(tokens))
+            logger.info(
+                f"Total tokens in article cluster: {sum(token_counts)}. Total articles in cluster: {len(article_cluster_texts)}. Average tokens per article: {float(sum(token_counts)) / len(article_cluster_texts)}. Max tokens per article: {max(token_counts)}."
+            )
             # TODO - might still need to chunk the text
             # will try with each doc being an article initially
             # I probably need to chunk it as I did before and maybe add the separator
             docs: list[Document] = [
                 Document(page_content=article_text) for article_text in article_cluster_texts
             ]
+            # simply rewrite the article instead of summarizing
+            # TODO - NOTE - we are using the long chain by default. In the future we could definetely use long chain
+            # only for documents with large number of tokens, else the normal context length one
+            chain = self._rewrite_long_refine_llm_chain
         elif summarization_length == SummarizationLength.MEDIUM:
             chain = self._medium_summarization_stuff_llm_chain
             if not self.full_article_summary:

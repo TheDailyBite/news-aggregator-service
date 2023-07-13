@@ -72,7 +72,7 @@ services:
     ports:
       - "3000:3000"
       - "8000:8000"
-    command: "reflex run"
+    command: "reflex run --env prod"
     deploy:
       resources:
         limits:

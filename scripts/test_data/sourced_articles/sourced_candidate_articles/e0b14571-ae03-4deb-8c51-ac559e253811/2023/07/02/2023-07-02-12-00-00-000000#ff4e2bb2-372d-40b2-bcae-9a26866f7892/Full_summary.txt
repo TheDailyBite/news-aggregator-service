@@ -1,0 +1,11 @@
+The use of generative AI in image editing has become increasingly prevalent in modern computational photography. Google and Adobe are two major players in this field, offering features like Magic Eraser, Magic Editor, and generative AI tools in their respective software. However, there are some concerns about the timely delivery of these features, as Google has a history of delayed releases. 
+
+One area where generative AI has shown promise is in extending the canvas of an image. Photoshop's generative AI tool allows users to easily fill in the background of a photo, creating a more visually appealing composition. This tool can also be used to generate humorous memes and gifs based on user input. 
+
+Another application of generative AI is in removing objects and generating realistic backgrounds. While Google's Magic Eraser function is effective, it has limitations in terms of compute power and on-device ML, often leaving streaks or segments within the image. In contrast, Photoshop's generative models have been successful in removing unwanted elements from photos and producing seamless results. 
+
+Generative AI can also be used to move objects within a frame and fill in the space left behind. While this feature has its limitations, such as exposure and contrast mismatches, it still offers users the ability to create realistic-looking shots with some manual adjustments. 
+
+However, it is important to consider the ethical implications of using generative AI to alter reality. Users must exercise caution and ensure that these tools are used responsibly. One suggestion is the implementation of a standardized digital watermark to indicate when generative AI has been applied to an image. 
+
+In conclusion, both Google and Adobe offer users the opportunity to explore the capabilities of generative AI in image editing. While there are limitations and ethical considerations to be aware of, these tools can be valuable resources in the hands of responsible users.
