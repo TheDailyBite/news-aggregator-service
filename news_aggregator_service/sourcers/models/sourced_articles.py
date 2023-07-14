@@ -40,7 +40,7 @@ from news_aggregator_data_access_layer.utils.s3 import (
     success_file_exists_at_prefix,
 )
 from pydantic import BaseModel
-from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
@@ -143,7 +143,7 @@ class SourcedArticle:
             article.provider_domain for article in self.article_cluster
         ]
         self.source_article_titles = [article.title for article in self.article_cluster]
-        self.sourced_article_id = f"{dt_to_lexicographic_dash_s3_prefix(self.sourced_article_published_dt)}#{str(uuid.uuid4())}"  # TODO - change
+        self.sourced_article_id = f"{dt_to_lexicographic_dash_s3_prefix(self.sourced_article_published_dt)}#{str(uuid.uuid4())}"
         self.publishing_date_str = publishing_date_str
         self.topic_id = topic_id
         self.topic = topic
@@ -542,6 +542,37 @@ class ArticleClusterGenerator:
         return embeddings
 
     def _cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+        return self._hac_cluster_embeddings(embeddings)
+
+    def _hac_cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+        logger.info("Clustering embeddings using HAC...")
+        range_n_clusters = range(2, len(embeddings))
+        embeddings_np = np.array(embeddings, dtype=np.float32)
+        silhouette_avg_scores = []
+        iter_labels = []
+        for n_clusters in range_n_clusters:
+            # The silhouette coefficient can range from -1, 1
+            clusterer = AgglomerativeClustering(n_clusters=n_clusters, linkage="ward")
+            # Fit the model
+            clusterer = clusterer.fit(embeddings_np)
+            cluster_labels = clusterer.labels_
+            # The silhouette_score gives the average value for all the samples.
+            # This gives a perspective into the density and separation of the formed
+            # clusters
+            silhouette_avg = silhouette_score(embeddings_np, cluster_labels)
+            silhouette_avg_scores.append(silhouette_avg)
+            iter_labels.append(cluster_labels.tolist())
+        max_silhouette_avg_idx = silhouette_avg_scores.index(max(silhouette_avg_scores))
+        max_silhouette_avg = silhouette_avg_scores[max_silhouette_avg_idx]
+        max_silhouette_avg_labels = iter_labels[max_silhouette_avg_idx]
+        n_clusters = range_n_clusters[max_silhouette_avg_idx]
+        logger.info(
+            f"Optimal number of clusters: {n_clusters}. Max silhouette score: {max_silhouette_avg}. Max silhouette score labels: {max_silhouette_avg_labels}. Max iter index: {max_silhouette_avg_idx}"
+        )
+        return max_silhouette_avg_labels, n_clusters
+
+    def _kmeans_cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+        logger.info("Clustering embeddings using KMeans...")
         range_n_clusters = range(2, len(embeddings))
         embeddings_np = np.array(embeddings, dtype=np.float32)
         silhouette_avg_scores = []

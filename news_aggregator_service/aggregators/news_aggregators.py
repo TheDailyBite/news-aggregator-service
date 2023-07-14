@@ -22,6 +22,7 @@ from news_aggregator_data_access_layer.constants import (
 from news_aggregator_data_access_layer.models.dynamodb import (
     AggregatorRuns,
     TrustedNewsProviders,
+    UntrustedNewsProviders,
     get_current_dt_utc_attribute,
     get_uuid4_attribute,
 )
@@ -487,7 +488,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
         self.published_date_attr_name = "published_at"
         self.request_date_format = "%Y-%m-%dT%H:%M:%S"
         self.start_page = 1
-        self._sorting = RELEVANCE_SORTING
+        self._sorting = POPULARITY_SORTING
         assert self._sorting in SUPPORTED_SORTING
         self.sorting_mapping = {
             RELEVANCE_SORTING: news_api_org.SortByEnum.RELEVANCE,
@@ -495,6 +496,13 @@ class NewsApiOrgAggregator(AggregatorInterface):
             DATE_SORTING: news_api_org.SortByEnum.PUBLISHED_AT,
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
+        # news api org requires a full url for the excludeDomains parameters (e.g. cnn.com; cnn would not work as expected)
+        self.exclude_providers = ",".join(
+            [unp.provider_url for unp in UntrustedNewsProviders.scan()]
+        )
+        logger.info(
+            f"Aggregator id: {self._aggregator_id}; Exclude providers: {self.exclude_providers}"
+        )
         # TODO - this should change after upgrading to premium subscription
         # TODO - instead of -30 it can probably be set to the oldest supported publishing date by the aggregator
         self._historical_articles_days_ago_start: timedelta = max(
@@ -630,6 +638,8 @@ class NewsApiOrgAggregator(AggregatorInterface):
                 to_date_iso8061=data_to_date,
                 sort_by=self.sorting_api_param,
                 page=page,
+                exclude_domains=self.exclude_providers,
+                search_in=news_api_org.SearchInEnum.TITLE_DESCRIPTION.value,
             )
             # Send API request
             response = requests.get(

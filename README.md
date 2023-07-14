@@ -126,7 +126,7 @@ print(f"Topic ID: {topic_id}")
 ```
 7. Once you have the news topic you wish to aggregate, you can run `aggregate_news_topic(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
 ```python
-data_start = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+data_start = (datetime.now(timezone.utc) - timedelta(days=4)).isoformat()
 data_end = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
 event = {
   "Records": [
@@ -146,19 +146,24 @@ aggregate_news_topic(json.dumps(event), None)
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
 9. Sourcing Articles for a given topic/date
 ```python
-sourcing_date = datetime(2023, 7, 1, tzinfo=timezone.utc)
-event = {
-  "Records": [
-    {
-      "body": {
-        "topic_id": topic_id,
-        "sourcing_date": sourcing_date.isoformat(),
-        "daily_sourcing_frequency": "1"
-      }
+topics_to_source = [
+  ("e0b14571-ae03-4deb-8c51-ac559e253811", [datetime(2023, 7, 1, tzinfo=timezone.utc), datetime(2023, 7, 2, tzinfo=timezone.utc)]),
+  ("39548f61-c0f0-4f71-8488-d35eaca4fe2f", [datetime(2023, 7, 10, tzinfo=timezone.utc), datetime(2023, 7, 11, tzinfo=timezone.utc), datetime(2023, 7, 12, tzinfo=timezone.utc)]),  
+]
+for topic_id, dates in topics_to_source:
+  for date in dates:
+    event = {
+      "Records": [
+        {
+          "body": {
+            "topic_id": topic_id,
+            "sourcing_date": date.isoformat(),
+            "daily_sourcing_frequency": "1"
+          }
+        }
+      ]
     }
-  ]
-}
-response = source_news_topic(json.dumps(event), None)
+    response = source_news_topic(json.dumps(event), None)
 ```
 10. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-sourced-articles-dev` bucket for the specified topic_id and publishing_date. See also in dynamodb in the `sourced-articles-dev` table.
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.

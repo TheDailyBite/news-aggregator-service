@@ -85,7 +85,7 @@ class Headers(BaseModel):
 
 class EverythingV2Request(CamelModel):
     q: str
-    search_in: Optional[str] = SearchInEnum.TITLE_DESCRIPTION_CONTENT
+    search_in: Optional[str]
     # A comma-seperated string of identifiers (maximum 20) for the news sources or blogs you want headlines from.
     # Use the /sources endpoint to locate these programmatically or look at the sources index.
     sources: Optional[str] = None
@@ -100,6 +100,6 @@ class EverythingV2Request(CamelModel):
     # relevancy = articles more closely related to q come first.
     # popularity = articles from popular sources and publishers come first.
     # publishedAt = newest articles come first.
-    sort_by: SortByEnum = SortByEnum.RELEVANCE
+    sort_by: SortByEnum
     page_size: int = 100
     page: int = 1
