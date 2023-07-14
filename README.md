@@ -95,7 +95,7 @@ This assume the news topic already exists. This is a news topic you wish to re-s
 ### Create a News Topic
 1. Navigate to the scripts folder: `cd scripts`
 2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
-3. Run `python create_news_topic.py` with the appropriate arguments. You can run `python create_news_topic.py --help` to see the arguments. (example: `python create_news_topic.py --daily-publishing-limit 10 "Generative AI" "" 25`)
+3. Run `python create_news_topic.py` with the appropriate arguments. You can run `python create_news_topic.py --help` to see the arguments. (example: `python create_news_topic.py --daily-publishing-limit 10 "Generative AI" 25`)
 4. The CLI should guide you through the process of creating a news topic.
 
 ### Local Testing
@@ -115,11 +115,9 @@ Running Service locally:
 ```python
 create_news_aggregators()
 topic="Generative AI"
-category= ALL_CATEGORIES_STR # e.g. "science-and-technology" or ALL_CATEGORIES_STR (one of SUPPORTED_AGGREGATION_CATEGORIES)
 max_aggregator_results=25
 event = {
     "topic": topic,
-    "category": category,
     "max_aggregator_results": max_aggregator_results,
 }
 response = create_news_topic(event, None)
@@ -128,8 +126,8 @@ print(f"Topic ID: {topic_id}")
 ```
 7. Once you have the news topic you wish to aggregate, you can run `aggregate_news_topic(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
 ```python
-data_start = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
-data_end = (datetime.now(timezone.utc) - timedelta(days=9)).isoformat()
+data_start = (datetime.now(timezone.utc) - timedelta(days=4)).isoformat()
+data_end = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
 event = {
   "Records": [
     {
@@ -148,19 +146,24 @@ aggregate_news_topic(json.dumps(event), None)
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
 9. Sourcing Articles for a given topic/date
 ```python
-sourcing_date = datetime(2023, 6, 8, tzinfo=timezone.utc)
-event = {
-  "Records": [
-    {
-      "body": {
-        "topic_id": topic_id,
-        "sourcing_date": sourcing_date.isoformat(),
-        "daily_sourcing_frequency": "2.5"
-      }
+topics_to_source = [
+  ("e0b14571-ae03-4deb-8c51-ac559e253811", [datetime(2023, 7, 1, tzinfo=timezone.utc), datetime(2023, 7, 2, tzinfo=timezone.utc)]),
+  ("39548f61-c0f0-4f71-8488-d35eaca4fe2f", [datetime(2023, 7, 10, tzinfo=timezone.utc), datetime(2023, 7, 11, tzinfo=timezone.utc), datetime(2023, 7, 12, tzinfo=timezone.utc)]),  
+]
+for topic_id, dates in topics_to_source:
+  for date in dates:
+    event = {
+      "Records": [
+        {
+          "body": {
+            "topic_id": topic_id,
+            "sourcing_date": date.isoformat(),
+            "daily_sourcing_frequency": "1"
+          }
+        }
+      ]
     }
-  ]
-}
-response = source_news_topic(json.dumps(event), None)
+    response = source_news_topic(json.dumps(event), None)
 ```
 10. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-sourced-articles-dev` bucket for the specified topic_id and publishing_date. See also in dynamodb in the `sourced-articles-dev` table.
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.
@@ -186,15 +189,14 @@ from news_aggregator_service.constants import (
 )
 bing = BingAggregator()
 topic_id = "9910f34e-c25e-4667-8471-296f7bc60f62"
-topic = "Generative+AI"
-category = "science-and-technology"
+topic = "Generative AI"
 end_time = datetime.now(timezone.utc)
 start_time = end_time - timedelta(days=1)
 sorting = RELEVANCE_SORTING
 max_aggregator_results = 20
 fetched_articles_count = 100
 trusted_news_providers = []
-aggregated_articles, pub_start_time, pub_end_time = bing.get_candidates_for_topic(topic_id, topic, category, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
+aggregated_articles, pub_start_time, pub_end_time = bing.get_candidates_for_topic(topic_id, topic, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
 # news api org
 from datetime import datetime, timedelta, timezone
 from news_aggregator_service.aggregators.news_aggregators import NewsApiOrgAggregator
@@ -205,15 +207,14 @@ from news_aggregator_service.constants import (
 )
 newsapiorg = NewsApiOrgAggregator()
 topic_id = "9910f34e-c25e-4667-8471-296f7bc60f62"
-topic = "Generative+AI"
-category = ""
+topic = "Generative AI"
 end_time = datetime.now(timezone.utc) - timedelta(days=2)
 start_time = end_time - timedelta(days=1)
 sorting = RELEVANCE_SORTING
 max_aggregator_results = 20
 fetched_articles_count = 100
 trusted_news_providers = []
-aggregated_articles, pub_start_time, pub_end_time = newsapiorg.get_candidates_for_topic(topic_id, topic, category, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
+aggregated_articles, pub_start_time, pub_end_time = newsapiorg.get_candidates_for_topic(topic_id, topic, start_time, end_time, sorting, max_aggregator_results, fetched_articles_count, trusted_news_providers)
 ```
 
 ### Set up bots

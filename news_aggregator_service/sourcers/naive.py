@@ -22,6 +22,7 @@ from news_aggregator_data_access_layer.constants import (
 from news_aggregator_data_access_layer.models.dynamodb import SourcedArticles, get_uuid4_attribute
 from news_aggregator_data_access_layer.utils.s3 import dt_to_lexicographic_date_s3_prefix
 
+from news_aggregator_service.config import MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE
 from news_aggregator_service.sourcers.models.sourced_articles import (
     ArticleClusterGenerator,
     SourcedArticle,
@@ -36,7 +37,6 @@ class NaiveSourcer:
         self,
         topic_id: str,
         topic: str,
-        category: str,
         top_k: int,
         sourcing_date: datetime,
         daily_publishing_limit: int,
@@ -46,7 +46,6 @@ class NaiveSourcer:
     ):
         self.topic_id = topic_id
         self.topic = topic
-        self.category = category
         self.top_k = top_k
         self.sourcing_date = sourcing_date
         self.sourcing_date_str = dt_to_lexicographic_date_s3_prefix(sourcing_date)
@@ -106,7 +105,6 @@ class NaiveSourcer:
                 self.sourcing_date_str,
                 self.topic_id,
                 self.topic,
-                self.category,
                 sourcing_run_id,
                 self.s3_client,
             )
@@ -187,12 +185,12 @@ class NaiveSourcer:
             logger.info("Populating article inventory first since it is empty")
             self.populate_article_inventory()
         # TODO - do we want a minumum?
-        # if len(self.article_inventory) < MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE:
-        #     logger.info(
-        #         f"Article inventory size {len(self.article_inventory)} is less than minimum article inventory size {MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE}. Sourcing will occur at a later date when more candidates are available."
-        #     )
-        #     # TODO - pubish metric
-        #     return self.sourced_articles
+        if len(self.article_inventory) < MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE:
+            logger.info(
+                f"Article inventory size {len(self.article_inventory)} is less than minimum article inventory size {MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE}. Sourcing will occur at a later date when more candidates are available."
+            )
+            # TODO - pubish metric
+            return self.sourced_articles
         clustered_articles: list[list[RawArticle]] = self.cluster_articles()
         self.generate_sourced_articles(clustered_articles, sourcing_run_id)
         return self.sourced_articles

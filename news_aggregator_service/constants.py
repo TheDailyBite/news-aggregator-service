@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from news_aggregator_data_access_layer.constants import ALL_CATEGORIES_STR
+from news_aggregator_data_access_layer.constants import NO_CATEGORY_STR
 
 DATE_SORTING = "date"
 RELEVANCE_SORTING = "relevance"
@@ -68,61 +68,35 @@ BING_NEWS_PUBLISHED_DATE_REGEX = (
 )
 # Define the Bing category mapper.
 BING_CATEGORIES_MAPPER = {
-    ALL_CATEGORIES_STR: ALL_CATEGORIES_STR,
-    "business": "Business",
-    "entertainment": "Entertainment",
-    "health": "Health",
-    "politics": "Politics",
-    "products": "Products",
-    "science-and-technology": "ScienceAndTechnology",
-    "sports": "Sports",
-    "us": "US",
-    "world": "World",
-    "world_africa": "World_Africa",
-    "world_americas": "World_Americas",
-    "world_asia": "World_Asia",
-    "world_europe": "World_Europe",
-    "world_middleeast": "World_MiddleEast",
+    "Business": "business",
+    "Entertainment": "entertainment",
+    "Health": "health",
+    "Politics": "politics",
+    "Products": "products",
+    "ScienceAndTechnology": "science-and-technology",
+    "Sports": "sports",
+    "US": "us",
+    "World": "world",
+    "World_Africa": "world_africa",
+    "World_Americas": "world_americas",
+    "World_Asia": "world_asia",
+    "World_Europe": "world_europe",
+    "World_MiddleEast": "world_middleeast",
 }
 # NewsApi.org
 NEWS_API_ORG_PUBLISHED_DATE_REGEX = r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)$"
 # Define the Bing category mapper.
-NEWS_API_ORG_CATEGORIES_MAPPER = {
-    ALL_CATEGORIES_STR: ALL_CATEGORIES_STR,
-    "business": None,
-    "entertainment": None,
-    "health": None,
-    "politics": None,
-    "products": None,
-    "science-and-technology": None,
-    "sports": None,
-    "us": None,
-    "world": None,
-    "world_africa": None,
-    "world_americas": None,
-    "world_asia": None,
-    "world_europe": None,
-    "world_middleeast": None,
-}
+NEWS_API_ORG_CATEGORIES_MAPPER = {}
 # thenewsapi.com
 THE_NEWS_API_COM_PUBLISHED_DATE_REGEX = (
     r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}Z)$"
 )
 # Define the Bing category mapper.
 THE_NEWS_API_COM_CATEGORIES_MAPPER = {
-    ALL_CATEGORIES_STR: ALL_CATEGORIES_STR,
     "business": "business",
     "entertainment": "entertainment",
     "health": "health",
     "politics": "politics",
-    "products": None,
-    "science-and-technology": "science,tech",
+    "science,tech": "science-and-technology",
     "sports": "sports",
-    "us": None,
-    "world": None,
-    "world_africa": None,
-    "world_americas": None,
-    "world_asia": None,
-    "world_europe": None,
-    "world_middleeast": None,
 }

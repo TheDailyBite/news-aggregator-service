@@ -5,15 +5,13 @@ import math
 from datetime import datetime, timedelta, timezone
 
 import boto3
-from news_aggregator_data_access_layer.constants import (
-    ALL_CATEGORIES_STR,
-    SUPPORTED_AGGREGATION_CATEGORIES,
-    NewsAggregatorsEnum,
-)
+from news_aggregator_data_access_layer.constants import NewsAggregatorsEnum
 from news_aggregator_data_access_layer.models.dynamodb import (
     NewsAggregators,
     NewsTopics,
+    PreviewUsers,
     TrustedNewsProviders,
+    UserTopicSubscriptions,
     create_tables,
     get_current_dt_utc_attribute,
     get_uuid4_attribute,
@@ -32,8 +30,7 @@ from news_aggregator_service.config import (
     NEWS_AGGREGATION_QUEUE_NAME,
     NEWS_SOURCING_QUEUE_NAME,
 )
-from news_aggregator_service.exceptions import UnsupportedCategoryException
-from news_aggregator_service.sourcers.naive import NaiveSourcer
+from news_aggregator_service.exceptions import PreviewUserNotExistsException
 
 create_tables()
 
@@ -122,12 +119,6 @@ def aggregation_scheduler(event, context):
                 logger.info(f"Skipping inactive news topic {news_topic.topic_id}")
                 continue
             for aggregator_id in aggregators:
-                agg = fetch_aggregator(aggregator_id)
-                if not agg.is_category_supported(news_topic.category):
-                    logger.info(
-                        f"Skipping aggregator {aggregator_id} for news topic {news_topic.topic_id} because category {news_topic.category} is not supported"
-                    )
-                    continue
                 aggregation_data_start_dt, aggregation_data_end_dt = get_aggregation_timeframe(
                     news_topic, aggregator_id
                 )
@@ -258,26 +249,19 @@ def aggregate_news_topic(event, context):
         max_aggregator_results = news_topic.max_aggregator_results
         fetched_articles_count = max_aggregator_results * AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER
         logger.info(
-            f"Aggregating news from aggregator {aggregator_id} for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Max aggregator results {max_aggregator_results}"
+            f"Aggregating news from aggregator {aggregator_id} for topic id: {topic_id} (topic: {news_topic.topic}). Max aggregator results {max_aggregator_results}"
         )
         trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
         aggregator = fetch_aggregator(aggregator_id)
-        try:
-            aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
-                news_topic.topic_id,
-                news_topic.topic,
-                news_topic.category,
-                aggregation_data_start_dt,
-                aggregation_data_end_dt,
-                max_aggregator_results,
-                fetched_articles_count,
-                trusted_news_providers,
-            )
-        except UnsupportedCategoryException as e:
-            logger.info(
-                f"Aggregator {aggregator_id} does not support category {news_topic.category}. Skipping aggregation for topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category})"
-            )
-            return {"statusCode": 200, "body": {"message": str(e)}}
+        aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
+            news_topic.topic_id,
+            news_topic.topic,
+            aggregation_data_start_dt,
+            aggregation_data_end_dt,
+            max_aggregator_results,
+            fetched_articles_count,
+            trusted_news_providers,
+        )
         update_news_topic_last_aggregation_dts(news_topic, aggregator_id, end_published_dt)
         results = aggregation_result.json()
         return {"statusCode": 200, "body": {"results": results}}
@@ -297,6 +281,8 @@ def aggregate_news_topic(event, context):
 
 def source_news_topic(event, context):
     try:
+        from news_aggregator_service.sourcers.naive import NaiveSourcer
+
         logger.info(f"Received event: {event}")
         event = json.loads(event)
         if len(event["Records"]) != 1:
@@ -321,12 +307,11 @@ def source_news_topic(event, context):
         daily_publishing_limit = news_topic.daily_publishing_limit
         top_k = math.ceil(float(daily_publishing_limit) / daily_sourcing_frequency)
         logger.info(
-            f"Sourcing news for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Top k {top_k}."
+            f"Sourcing news for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic}). Top k {top_k}."
         )
         naive_sourcer = NaiveSourcer(
             topic_id,
             news_topic.topic,
-            news_topic.category,
             top_k,
             sourcing_date,
             daily_publishing_limit,
@@ -334,7 +319,7 @@ def source_news_topic(event, context):
         sourced_articles = naive_sourcer.source_articles()
         if not sourced_articles:
             logger.info(
-                f"No articles found for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic} category: {news_topic.category}). Top k {top_k}."
+                f"No articles found for sourcing date {sourcing_date}, topic id: {topic_id} (topic: {news_topic.topic}). Top k {top_k}."
             )
             return {"statusCode": 200, "body": {"results": []}}
         naive_sourcer.store_articles()

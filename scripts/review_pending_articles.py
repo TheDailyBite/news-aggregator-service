@@ -16,7 +16,7 @@ from news_aggregator_data_access_layer.models.dynamodb import (
 from news_aggregator_data_access_layer.utils.s3 import get_object
 
 
-def main():
+def review_pending_articles():
     article_skipped = 0
     articles_published = 0
     articles_rejected = 0
@@ -35,7 +35,7 @@ def main():
         print(
             f"""
 We will now evaluate article {article.sourced_article_id} for topic id {topic.topic_id}.
-Topic name: {topic.topic} and category {topic.category if topic.category else "No category"}
+Topic name: {topic.topic}
 
 What we will be evaluation is the quality of the sourced article primarily for the title, short, medium, and full summaries.
 
@@ -83,7 +83,7 @@ We will utilize the SOURCE ARTICLE URLS to evaluate the quality of the generated
                         ]
                     )
                     print(
-                        f"Incrementing published articles item for topic {topic.topic_id} and published date {article.published_date} by 1."
+                        f"Incrementing published articles item for topic {topic.topic_id} and published date {article.date_published} by 1."
                     )
                     try:
                         published_article = PublishedArticles.get(
@@ -152,4 +152,4 @@ Articles rejected: {articles_rejected}
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    typer.run(review_pending_articles)

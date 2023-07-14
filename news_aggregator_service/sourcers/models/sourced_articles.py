@@ -40,7 +40,7 @@ from news_aggregator_data_access_layer.utils.s3 import (
     success_file_exists_at_prefix,
 )
 from pydantic import BaseModel
-from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
@@ -49,6 +49,7 @@ from news_aggregator_service.config import (
     FAKE_OPENAI_API_KEY,
     HUGGINGFACE_API_KEY,
     HUGGINGFACE_API_KEY_SECRET_NAME,
+    LONG_SUMMARIZATION_MODEL_NAME,
     OPENAI_API_KEY,
     OPENAI_API_KEY_SECRET_NAME,
     SUMMARIZATION_MODEL_NAME,
@@ -101,7 +102,7 @@ class SourcedArticleRef(BaseModel):
     article_dt_published: str
     article_topic_id: str
     article_topic: str
-    article_requested_category: str
+    source_article_categories: list[str]
     source_article_ids: list[str]
     source_article_urls: list[str]
     source_article_provider_domains: list[str]
@@ -115,7 +116,6 @@ class SourcedArticle:
         publishing_date_str: str,
         topic_id: str,
         topic: str,
-        requested_category: str,
         sourcing_run_id: str,
         s3_client: boto3.client = boto3.client(
             service_name="s3", region_name=REGION_NAME, endpoint_url=S3_ENDPOINT_URL
@@ -136,17 +136,17 @@ class SourcedArticle:
         logger.info(
             f"Computed Sourced article published dt will be {self.sourced_article_published_dt} as the min of {self.article_cluster_dts_published}"
         )
+        self.source_article_categories = [article.category for article in self.article_cluster]
         self.source_article_ids = [article.article_id for article in self.article_cluster]
         self.source_article_urls = [article.url for article in self.article_cluster]
         self.source_article_provider_domains = [
             article.provider_domain for article in self.article_cluster
         ]
         self.source_article_titles = [article.title for article in self.article_cluster]
-        self.sourced_article_id = f"{dt_to_lexicographic_dash_s3_prefix(self.sourced_article_published_dt)}#{str(uuid.uuid4())}"  # TODO - change
+        self.sourced_article_id = f"{dt_to_lexicographic_dash_s3_prefix(self.sourced_article_published_dt)}#{str(uuid.uuid4())}"
         self.publishing_date_str = publishing_date_str
         self.topic_id = topic_id
         self.topic = topic
-        self.requested_category = requested_category
         self.sourcing_run_id = sourcing_run_id
         self.s3_client = s3_client
         self.sourced_candidate_articles_s3_extension = ".json"
@@ -166,6 +166,13 @@ class SourcedArticle:
             openai_api_key=openai_api_key,
             temperature=SUMMARIZATION_TEMPERATURE,
         )  # type: ignore
+        self.summarization_open_ai = summarization_open_ai
+        long_summarization_open_ai = ChatOpenAI(
+            model_name=LONG_SUMMARIZATION_MODEL_NAME,
+            openai_api_key=openai_api_key,
+            temperature=SUMMARIZATION_TEMPERATURE,
+        )  # type: ignore
+        self.long_summarization_open_ai = long_summarization_open_ai
         # summarization stuff
         summarization_prompt_template = SUMMARIZATION_TEMPLATE.replace("####topic####", self.topic)
         self._medium_summarization_prompt_template = PromptTemplate(
@@ -206,7 +213,13 @@ class SourcedArticle:
             input_variables=["existing_answer", "text"],
         )
         self._rewrite_refine_llm_chain = load_summarize_chain(
-            summarization_open_ai,
+            self.summarization_open_ai,
+            chain_type="refine",
+            question_prompt=self._refine_rewrite_prompt_template,
+            refine_prompt=self._refine_rewrite_refine_step_prompt_template,
+        )
+        self._rewrite_long_refine_llm_chain = load_summarize_chain(
+            self.long_summarization_open_ai,
             chain_type="refine",
             question_prompt=self._refine_rewrite_prompt_template,
             refine_prompt=self._refine_rewrite_refine_step_prompt_template,
@@ -225,7 +238,7 @@ class SourcedArticle:
         )
 
     def _get_sourced_candidates_s3_object_prefix(self) -> str:
-        return f"sourced_candidate_articles/{self.publishing_date_str}/{self.topic_id}/{self.sourced_article_id}"
+        return f"sourced_candidate_articles/{self.topic_id}/{self.publishing_date_str}/{self.sourced_article_id}"
 
     def _get_sourced_candidate_article_s3_object_key(self) -> str:
         return f"{self._get_sourced_candidates_s3_object_prefix()}/{self.sourced_article_id}{self.sourced_candidate_articles_s3_extension}"
@@ -236,31 +249,37 @@ class SourcedArticle:
         return f"{self._get_sourced_candidates_s3_object_prefix()}/{summarization_length.value}{self.summarization_suffix}{self.summary_s3_extension}"
 
     def process_article(self) -> float:
-        logger.info(f"Processing article with sourced article id {self.sourced_article_id}")
-        article_processing_cost = 0.0
-        self.title, cost = self._generate_article_title()
-        article_processing_cost += cost
-        # create article summaries
-        self.full_article_summary, cost = self._summarize_article(
-            summarization_length=SummarizationLength.FULL
-        )
-        article_processing_cost += cost
-        self.medium_article_summary, cost = self._summarize_article(
-            summarization_length=SummarizationLength.MEDIUM
-        )
-        article_processing_cost += cost
-        self.short_article_summary, cost = self._summarize_article(
-            summarization_length=SummarizationLength.SHORT
-        )
-        article_processing_cost += cost
-        # TODO -
-        # create embedding?
-        # find out clustered topic using BertTopic?
-        # find out sentiment?
-        # More?
-        self.is_processed = True
-        self.article_processing_cost = article_processing_cost
-        return article_processing_cost
+        try:
+            logger.info(f"Processing article with sourced article id {self.sourced_article_id}")
+            article_processing_cost = 0.0
+            self.title, cost = self._generate_article_title()
+            article_processing_cost += cost
+            # create article summaries
+            self.full_article_summary, cost = self._summarize_article(
+                summarization_length=SummarizationLength.FULL
+            )
+            article_processing_cost += cost
+            self.medium_article_summary, cost = self._summarize_article(
+                summarization_length=SummarizationLength.MEDIUM
+            )
+            article_processing_cost += cost
+            self.short_article_summary, cost = self._summarize_article(
+                summarization_length=SummarizationLength.SHORT
+            )
+            article_processing_cost += cost
+            # TODO -
+            # create embedding?
+            # find out clustered topic using BertTopic?
+            # find out sentiment?
+            # More?
+            self.is_processed = True
+            self.article_processing_cost = article_processing_cost
+            return article_processing_cost
+        except Exception as e:
+            logger.error(
+                f"Error processing article {self.sourced_article_id}: {e}. Source article ids: {self.source_article_ids}"
+            )
+            raise
 
     def store_article(self):
         logger.info(f"Storing article {self.sourced_article_id}")
@@ -289,7 +308,7 @@ class SourcedArticle:
             article_dt_published=self.sourced_article_published_dt.isoformat(),
             article_topic_id=self.topic_id,
             article_topic=self.topic,
-            article_requested_category=self.requested_category,
+            source_article_categories=self.source_article_categories,
             source_article_ids=self.source_article_ids,
             source_article_urls=self.source_article_urls,
             source_article_provider_domains=self.source_article_provider_domains,
@@ -334,6 +353,7 @@ class SourcedArticle:
             date_published=self.publishing_date_str,
             title=self.title,
             topic=self.topic,
+            source_article_categories=self.source_article_categories,
             source_article_ids=self.source_article_ids,
             source_article_urls=self.source_article_urls,
             providers=self.source_article_provider_domains,
@@ -395,14 +415,23 @@ class SourcedArticle:
     def _summarize_article(self, summarization_length: SummarizationLength) -> tuple[str, float]:
         article_cluster_texts = [article.get_article_text() for article in self.article_cluster]
         if summarization_length == SummarizationLength.FULL:
-            # simply rewrite the article instead of summarizing
-            chain = self._rewrite_refine_llm_chain
+            token_counts = []
+            for article_text in article_cluster_texts:
+                tokens = self.long_summarization_open_ai.get_token_ids(article_text)
+                token_counts.append(len(tokens))
+            logger.info(
+                f"Total tokens in article cluster: {sum(token_counts)}. Total articles in cluster: {len(article_cluster_texts)}. Average tokens per article: {float(sum(token_counts)) / len(article_cluster_texts)}. Max tokens per article: {max(token_counts)}."
+            )
             # TODO - might still need to chunk the text
             # will try with each doc being an article initially
             # I probably need to chunk it as I did before and maybe add the separator
             docs: list[Document] = [
                 Document(page_content=article_text) for article_text in article_cluster_texts
             ]
+            # simply rewrite the article instead of summarizing
+            # TODO - NOTE - we are using the long chain by default. In the future we could definetely use long chain
+            # only for documents with large number of tokens, else the normal context length one
+            chain = self._rewrite_long_refine_llm_chain
         elif summarization_length == SummarizationLength.MEDIUM:
             chain = self._medium_summarization_stuff_llm_chain
             if not self.full_article_summary:
@@ -513,6 +542,37 @@ class ArticleClusterGenerator:
         return embeddings
 
     def _cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+        return self._hac_cluster_embeddings(embeddings)
+
+    def _hac_cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+        logger.info("Clustering embeddings using HAC...")
+        range_n_clusters = range(2, len(embeddings))
+        embeddings_np = np.array(embeddings, dtype=np.float32)
+        silhouette_avg_scores = []
+        iter_labels = []
+        for n_clusters in range_n_clusters:
+            # The silhouette coefficient can range from -1, 1
+            clusterer = AgglomerativeClustering(n_clusters=n_clusters, linkage="ward")
+            # Fit the model
+            clusterer = clusterer.fit(embeddings_np)
+            cluster_labels = clusterer.labels_
+            # The silhouette_score gives the average value for all the samples.
+            # This gives a perspective into the density and separation of the formed
+            # clusters
+            silhouette_avg = silhouette_score(embeddings_np, cluster_labels)
+            silhouette_avg_scores.append(silhouette_avg)
+            iter_labels.append(cluster_labels.tolist())
+        max_silhouette_avg_idx = silhouette_avg_scores.index(max(silhouette_avg_scores))
+        max_silhouette_avg = silhouette_avg_scores[max_silhouette_avg_idx]
+        max_silhouette_avg_labels = iter_labels[max_silhouette_avg_idx]
+        n_clusters = range_n_clusters[max_silhouette_avg_idx]
+        logger.info(
+            f"Optimal number of clusters: {n_clusters}. Max silhouette score: {max_silhouette_avg}. Max silhouette score labels: {max_silhouette_avg_labels}. Max iter index: {max_silhouette_avg_idx}"
+        )
+        return max_silhouette_avg_labels, n_clusters
+
+    def _kmeans_cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+        logger.info("Clustering embeddings using KMeans...")
         range_n_clusters = range(2, len(embeddings))
         embeddings_np = np.array(embeddings, dtype=np.float32)
         silhouette_avg_scores = []

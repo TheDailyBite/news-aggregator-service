@@ -23,7 +23,7 @@ PINECONE_API_KEY_SECRET_NAME = os.environ.get("PINECONE_API_KEY_SECRET_NAME", "p
 # this is a multiplier of the max aggregation results for the number of articles to fetch for each aggregator
 # this provides a buffer before validation and filtering is applied to the aggregated articles
 AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER = int(
-    os.environ.get("AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER", 4)
+    os.environ.get("AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER", 2)
 )
 # this is the approximate max number of articles to publish each day for each topic
 DEFAULT_DAILY_PUBLISHING_LIMIT = int(os.environ.get("DEFAULT_DAILY_PUBLISHING_LIMIT", 5))
@@ -38,6 +38,7 @@ DEFAULT_NAMESPACE = os.environ.get("DEFAULT_NAMESPACE", "NewsAggregatorService")
 # NOTE - the inventory size impacts the clustering quality. Anectodatlly, 10 is a good number.
 MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE = int(os.environ.get("MINIMUM_ARTICLE_INVENTORY_SIZE", 10))
 SUMMARIZATION_MODEL_NAME = os.environ.get("SUMMARIZATION_MODEL_NAME", "gpt-3.5-turbo")
+LONG_SUMMARIZATION_MODEL_NAME = os.environ.get("LONG_SUMMARIZATION_MODEL_NAME", "gpt-3.5-turbo-16k")
 # TODO - what should this be?
 SUMMARIZATION_TEMPERATURE = float(os.environ.get("SUMMARIZATION_TEMPERATURE", 0.0))
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
