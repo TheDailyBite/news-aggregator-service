@@ -21,6 +21,7 @@ from news_aggregator_service.aggregators.news_aggregators import (
     AggregatorInterface,
     BingAggregator,
     NewsApiOrgAggregator,
+    TheNewsApiComAggregator,
 )
 from news_aggregator_service.config import (
     AGGREGATOR_FETCHED_ARTICLES_MULTIPLIER,
@@ -44,6 +45,8 @@ def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
         return BingAggregator()
     elif aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
         return NewsApiOrgAggregator()
+    elif aggregator_id == NewsAggregatorsEnum.THE_NEWS_API_COM.value:
+        return TheNewsApiComAggregator()
     else:
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
 
@@ -65,6 +68,13 @@ def update_news_topic_last_aggregation_dts(
                 NewsTopics.news_api_org_aggregation_last_end_time.set(aggregation_data_end_dt),
             ]
         )
+    elif aggregator_id == NewsAggregatorsEnum.THE_NEWS_API_COM.value:
+        news_topic.update(
+            actions=[
+                NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
+                NewsTopics.the_news_api_com_aggregation_last_end_time.set(aggregation_data_end_dt),
+            ]
+        )
     else:
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
 
@@ -79,6 +89,10 @@ def get_aggregation_timeframe(
             last_end_dt = datetime.now(timezone.utc) + aggregator.historical_articles_days_ago_start
     elif aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
         last_end_dt = news_topic.news_api_org_aggregation_last_end_time
+        if last_end_dt is None:
+            last_end_dt = datetime.now(timezone.utc) + aggregator.historical_articles_days_ago_start
+    elif aggregator_id == NewsAggregatorsEnum.THE_NEWS_API_COM.value:
+        last_end_dt = news_topic.the_news_api_com_aggregation_last_end_time
         if last_end_dt is None:
             last_end_dt = datetime.now(timezone.utc) + aggregator.historical_articles_days_ago_start
     else:

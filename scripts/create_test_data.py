@@ -38,7 +38,7 @@ from news_aggregator_service.config import DEFAULT_DAILY_PUBLISHING_LIMIT
 # class Article()
 
 
-def upload_directory_to_s3(bucket_name, directory_path, s3_prefix="") -> set:
+def upload_directory_to_s3(bucket_name: str, directory_path: str, s3_prefix: str = "") -> set[str]:
     """Uploads an entire local directory to an S3 bucket.
 
     Args:
@@ -60,7 +60,7 @@ def upload_directory_to_s3(bucket_name, directory_path, s3_prefix="") -> set:
     return article_prefixes
 
 
-def get_article_prefixes(directory_path) -> set:
+def get_article_prefixes(directory_path: str) -> set[str]:
     """Get article prefixes from a local directory.
 
     Args:

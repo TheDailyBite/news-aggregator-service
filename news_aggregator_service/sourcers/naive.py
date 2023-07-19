@@ -73,7 +73,24 @@ class NaiveSourcer:
     def cluster_articles(self) -> list[list[RawArticle]]:
         """This clusters the articles in the article inventory into clusters of similar articles."""
         article_cluster_gen = ArticleClusterGenerator(self.article_inventory)
-        return article_cluster_gen.generate_clusters()
+        clustered_articles, article_embeddings = article_cluster_gen.generate_clusters()
+        if len(self.article_inventory) != len(article_embeddings):
+            logger.error(
+                f"Number of articles ({len(self.article_inventory)}) does not match number of embeddings ({len(article_embeddings)})."
+            )
+            raise ValueError(
+                f"Number of articles ({len(self.article_inventory)}) does not match number of embeddings ({len(article_embeddings)})."
+            )
+        kwargs = {
+            "s3_client": self.s3_client,
+            "articles": self.article_inventory,
+            "embeddings": article_embeddings,
+        }
+        bucket, prefixes = self.candidate_articles.store_embeddings(**kwargs)
+        logger.info(
+            f"Stored {len(self.article_inventory)} article embeddings in bucket {bucket} with prefixes {prefixes}."
+        )
+        return clustered_articles
 
     def _sort_clustered_articles(
         self, clustered_articles: list[list[RawArticle]]

@@ -133,7 +133,7 @@ event = {
     {
       "body": {
         "topic_id": topic_id,
-        "aggregator_id": NewsAggregatorsEnum.NEWS_API_ORG.value, # NewsAggregatorsEnum.BING_NEWS.value
+        "aggregator_id": NewsAggregatorsEnum.THE_NEWS_API_COM.value, # NewsAggregatorsEnum.NEWS_API_ORG.value
         "aggregation_data_start_dt": data_start,
         "aggregation_data_end_dt": data_end,
       }
@@ -164,6 +164,25 @@ for topic_id, dates in topics_to_source:
       ]
     }
     response = source_news_topic(json.dumps(event), None)
+
+
+topics_to_source = [
+  ("df55f9a9-7cfa-46ca-88d1-a367d565f1b1", [datetime(2023, 7, 15, tzinfo=timezone.utc), datetime(2023, 7, 16, tzinfo=timezone.utc), datetime(2023, 7, 17, tzinfo=timezone.utc)]),  
+]
+for topic_id, dates in topics_to_source:
+  for date in dates:
+    event = {
+      "Records": [
+        {
+          "body": {
+            "topic_id": topic_id,
+            "sourcing_date": date.isoformat(),
+            "daily_sourcing_frequency": "1"
+          }
+        }
+      ]
+    }
+    response = source_news_topic(json.dumps(event), None)    
 ```
 10. See in the s3 local ui that the news has been aggregated and stored in the `news-aggregator-sourced-articles-dev` bucket for the specified topic_id and publishing_date. See also in dynamodb in the `sourced-articles-dev` table.
 - NOTE - the s3 local ui uses a volume to persist the data. If you wish to clear the data, simply delete the `docker/s3-data` directory and restart the containers.

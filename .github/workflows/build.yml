@@ -10,7 +10,7 @@ permissions:
 env:
   DOCKERFILE_PATH: docker/Dockerfile-Lambda-x86_64
   IMAGE_TAG: latest-lambda-x86_64
-  AWS_REGION: us-west-1
+  AWS_REGION: us-east-1
 
 jobs:
   build:

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 
 from news_aggregator_data_access_layer.constants import NO_CATEGORY_STR
@@ -85,18 +86,19 @@ BING_CATEGORIES_MAPPER = {
 }
 # NewsApi.org
 NEWS_API_ORG_PUBLISHED_DATE_REGEX = r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)$"
-# Define the Bing category mapper.
-NEWS_API_ORG_CATEGORIES_MAPPER = {}
+# Define the NewsApi.org category mapper.
+NEWS_API_ORG_CATEGORIES_MAPPER: Mapping[str, str] = {}
 # thenewsapi.com
 THE_NEWS_API_COM_PUBLISHED_DATE_REGEX = (
     r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}Z)$"
 )
-# Define the Bing category mapper.
+# Define the thenewsapi.com category mapper.
 THE_NEWS_API_COM_CATEGORIES_MAPPER = {
     "business": "business",
     "entertainment": "entertainment",
     "health": "health",
     "politics": "politics",
-    "science,tech": "science-and-technology",
+    "science": "science-and-technology",
+    "tech": "science-and-technology",
     "sports": "sports",
 }

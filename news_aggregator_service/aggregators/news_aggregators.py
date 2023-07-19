@@ -33,7 +33,7 @@ from news_aggregator_data_access_layer.utils.s3 import (
     dt_to_lexicographic_date_s3_prefix,
 )
 
-from news_aggregator_service.aggregators.models import bing_news, news_api_org
+from news_aggregator_service.aggregators.models import bing_news, news_api_org, the_news_api_com
 from news_aggregator_service.aggregators.models.aggregations import AggregationResults
 from news_aggregator_service.config import (
     BING_NEWS_API_KEY,
@@ -43,6 +43,8 @@ from news_aggregator_service.config import (
     NEWS_API_ORG_API_KEY_SECRET_NAME,
     REGION_NAME,
     REQUESTS_SLEEP_TIME_S,
+    THE_NEWS_API_COM_API_KEY,
+    THE_NEWS_API_COM_API_KEY_SECRET_NAME,
 )
 from news_aggregator_service.constants import (
     BING_CATEGORIES_MAPPER,
@@ -250,7 +252,7 @@ class BingAggregator(AggregatorInterface):
         assert self._sorting in SUPPORTED_SORTING
         self.sorting_mapping = {
             RELEVANCE_SORTING: bing_news.SortByEnum.RELEVANCE,
-            DATE_SORTING: news_api_org.SortByEnum.PUBLISHED_AT,
+            DATE_SORTING: bing_news.SortByEnum.PUBLISHED_AT,
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
         self._historical_articles_days_ago_start: timedelta = max(
@@ -334,6 +336,7 @@ class BingAggregator(AggregatorInterface):
                 category=self.category_mapper.get_category(article.category),
                 title=article.name,
                 url=article.url,
+                article_text_description=article.description,
                 article_data=article.json(),
                 sorting=sorting,
             )
@@ -488,6 +491,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
         self.published_date_attr_name = "published_at"
         self.request_date_format = "%Y-%m-%dT%H:%M:%S"
         self.start_page = 1
+        self.search_in = news_api_org.SearchInEnum.TITLE_DESCRIPTION.value
         self._sorting = POPULARITY_SORTING
         assert self._sorting in SUPPORTED_SORTING
         self.sorting_mapping = {
@@ -586,6 +590,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
                 url=article.url,
                 author=article.author,
                 article_text_snippet=article.content,
+                article_text_description=article.description,
                 article_data=article.json(),
                 sorting=sorting,
             )
@@ -639,7 +644,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
                 sort_by=self.sorting_api_param,
                 page=page,
                 exclude_domains=self.exclude_providers,
-                search_in=news_api_org.SearchInEnum.TITLE_DESCRIPTION.value,
+                search_in=self.search_in,
             )
             # Send API request
             response = requests.get(
@@ -725,6 +730,272 @@ class NewsApiOrgAggregator(AggregatorInterface):
 
     def is_unique_article(
         self, article: news_api_org.Article, unique_articles_db: set[str]
+    ) -> bool:
+        # currently a unique article is defined by a unique url
+        if article.url in unique_articles_db:
+            logger.info(f"Article with url: {article.url} already exists, skipping...")
+            return False
+        unique_articles_db.add(article.url)
+        return True
+
+
+class TheNewsApiComAggregator(AggregatorInterface):
+    def __init__(self):
+        self._aggregator_id = NewsAggregatorsEnum.THE_NEWS_API_COM.value
+        self.base_url = "https://api.thenewsapi.com"
+        self.search_url = f"{self.base_url}/v1/news/all"
+        self.api_key = self.get_api_key(
+            THE_NEWS_API_COM_API_KEY, THE_NEWS_API_COM_API_KEY_SECRET_NAME
+        )
+        self._category_mapper = AggregatorCategoryMapper(THE_NEWS_API_COM_CATEGORIES_MAPPER)
+        self.headers = dict()
+        # this comes from the documentation and is based on pricing plan
+        self.max_articles_per_request = 100
+        self.published_date_regex = THE_NEWS_API_COM_PUBLISHED_DATE_REGEX
+        self.published_date_attr_name = "published_at"
+        self.request_date_format = "%Y-%m-%dT%H:%M:%S"
+        self.start_page = 1
+        self._sorting = RELEVANCE_SORTING
+        self.search_in = the_news_api_com.SearchInEnum.TITLE_DESCRIPTION.value
+        assert self._sorting in SUPPORTED_SORTING
+        self.sorting_mapping = {
+            RELEVANCE_SORTING: the_news_api_com.SortByEnum.RELEVANCE,
+            DATE_SORTING: the_news_api_com.SortByEnum.PUBLISHED_AT,
+        }
+        self.sorting_api_param = self.sorting_mapping[self._sorting]
+        # thenewsapi.com requires a full url for the excludeDomains parameters (e.g. cnn.com; cnn would not work as expected)
+        self.exclude_providers = ",".join(
+            [unp.provider_url for unp in UntrustedNewsProviders.scan()]
+        )
+        logger.info(
+            f"Aggregator id: {self._aggregator_id}; Exclude providers: {self.exclude_providers}"
+        )
+        # TODO - this should change after upgrading to premium subscription
+        # TODO - instead of -30 it can probably be set to the oldest supported publishing date by the aggregator
+        self._historical_articles_days_ago_start: timedelta = max(
+            timedelta(days=-30),
+            OLDEST_SUPPORTED_PUBLISHING_DATE
+            - datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0),
+        )
+        logger.info(
+            f"Historical articles days ago start: {self._historical_articles_days_ago_start} for aggregator {self._aggregator_id}"
+        )
+
+    @property
+    def aggregator_id(self):
+        return self._aggregator_id
+
+    @property
+    def category_mapper(self):
+        return self._category_mapper
+
+    @property
+    def sorting(self):
+        return self._sorting
+
+    @property
+    def historical_articles_days_ago_start(self):
+        return self._historical_articles_days_ago_start
+
+    def _get_data_timeframe(self, start_time: datetime, end_time: datetime) -> tuple[str, str]:
+        start_time_str = start_time.strftime(self.request_date_format)
+        end_time_str = end_time.strftime(self.request_date_format)
+        return start_time_str, end_time_str
+
+    def postprocess_articles(
+        self,
+        candidates: list[Any],
+        topic_id: str,
+        topic: str,
+        start_time: datetime,
+        end_time: datetime,
+        sorting: str,
+        max_aggregator_results: int,
+        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+    ) -> tuple[list[RawArticle], datetime, datetime]:
+        # TODO - at some point candidates can be some interface class which will have guaranteed certain fields
+        aggregated_articles: list[RawArticle] = []
+        min_start_time = datetime.max.replace(tzinfo=timezone.utc)
+        max_end_time = datetime.min.replace(tzinfo=timezone.utc)
+        if sorting == DATE_SORTING:
+            raise NotImplementedError(
+                f"Sorting by {sorting} is not implemented yet in post-processing."
+            )
+        article_idx = 0
+        for article in candidates:
+            if len(aggregated_articles) >= max_aggregator_results:
+                break
+            standardized_published_date = generate_standardized_published_date(
+                getattr(article, self.published_date_attr_name), self.published_date_regex
+            )
+            standardized_published_dt = datetime.fromisoformat(standardized_published_date)
+            if standardized_published_dt < start_time or standardized_published_dt > end_time:
+                logger.error(
+                    f"Article with url: {article.url} has published date {standardized_published_dt} which is outside the requested timeframe {start_time} - {end_time}, skipping..."
+                )
+                # TODO - emit metric
+                continue
+            if standardized_published_dt < min_start_time:
+                min_start_time = standardized_published_dt
+            if standardized_published_dt > max_end_time:
+                max_end_time = standardized_published_dt
+            article_id = self.generate_article_id(article_idx)
+            logger.info(f"Generated article id {article_id} for article with url: {article.url}")
+            raw_article = RawArticle(
+                article_id=article_id,
+                aggregator_id=self.aggregator_id,
+                dt_published=standardized_published_date,
+                aggregation_index=article_idx,
+                topic_id=topic_id,
+                topic=topic,
+                category=",".join(
+                    [self.category_mapper.get_category(c) for c in article.categories]
+                ),
+                title=article.title,
+                url=article.url,
+                article_text_snippet=article.snippet,
+                article_text_description=article.description,
+                article_data=article.json(),
+                sorting=sorting,
+            )
+            # NOTE - this will extract article text and more data from the article url
+            raw_article.process_article_data()
+            if not raw_article.article_processed_data:
+                logger.warning(
+                    f"Article with url: {article.url} has no processed data, skipping..."
+                )
+                continue
+            # TODO ?
+            if not raw_article.get_article_text_description():
+                logger.warning(f"Article with url: {article.url} has no description, skipping...")
+                continue
+            aggregated_articles.append(raw_article)
+            article_idx += 1
+        return aggregated_articles, min_start_time, max_end_time
+
+    def get_candidates_for_topic(
+        self,
+        topic_id: str,
+        topic: str,
+        start_time: datetime,
+        end_time: datetime,
+        sorting: str,
+        max_aggregator_results: int,
+        fetched_articles_count: int,
+        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+    ) -> tuple[list[RawArticle], datetime, datetime]:
+        candidates: list[the_news_api_com.Article] = []
+        total_matches = 0
+        page = self.start_page
+        data_from_date, data_to_date = self._get_data_timeframe(start_time, end_time)
+        topic = urllib.parse.quote_plus(topic)
+        logger.info(
+            f"Retrieving a max of {fetched_articles_count} news articles results for search term: {topic}) and timeframe: {data_from_date} - {data_to_date}..."
+        )
+        # currently we use the url only to check for duplicates
+        unique_articles_db: set[str] = set()
+        # NOTE - we will try to fetch fetched_articles_count articles
+        # we will only remove duplicate urls ("preprocessing")
+        # after this is complete, we will postprocess the results which will perform filtering and validation
+        # on the fetched articles and impose the max_aggregator_results
+        while True:
+            if len(candidates) >= fetched_articles_count:
+                logger.info(
+                    f"Reached fetched articles count, will process {len(candidates)} candidates..."
+                )
+                break
+            # Set topic parameters for API request
+            params = the_news_api_com.AllNewsRequest(  # type:ignore
+                api_token=self.api_key,
+                search=topic,
+                search_fields=self.search_in,
+                exclude_domains=self.exclude_providers,
+                published_after=data_from_date,
+                published_before=data_to_date,
+                sort=self.sorting_api_param,
+                page=page,
+                language="en",
+            )
+            # Send API request
+            response = requests.get(
+                self.search_url,
+                headers=self.headers,
+                params=params.dict(by_alias=False, exclude_none=True),
+                timeout=5,
+            )
+            logger.info(f"Request sent URL: {response.request.url}...")
+            if response.status_code == 200:
+                news_answer_json = response.json()
+                news_answer = the_news_api_com.AllNewsResponse.parse_obj(news_answer_json)
+
+                if not news_answer.data:
+                    logger.info("No more articles found in latest request, breaking...")
+                    break
+                total_matches = news_answer.meta.found
+                logger.info(
+                    f"Retrieved {len(news_answer.data)} articles in response for page {page}. Total matches {total_matches}..."
+                )
+                articles = news_answer.data
+                new_articles_count = len(articles)
+                preprocessed_articles = self.preprocess_articles(articles, unique_articles_db)
+                preprocessed_new_articles_count = len(preprocessed_articles)
+                needed_articles_count = fetched_articles_count - len(candidates)
+                if preprocessed_new_articles_count == 0:
+                    logger.info(
+                        f"Preprocessed articles count is 0, breaking despite needed articles count being {needed_articles_count}... (total articles retrieved in aggregation: {len(candidates)}; Page {page}; Total matches: {total_matches})"
+                    )
+                    break
+                preprocessed_articles = preprocessed_articles[:needed_articles_count]
+                candidates.extend(preprocessed_articles)
+                logger.info(
+                    f"Retrieved {new_articles_count} new articles of which {preprocessed_new_articles_count} are unique. Needed articles to reach max {needed_articles_count}. Total articles retrieved in aggregation: {len(candidates)}; Page {page}; Total matches: {total_matches}"
+                )
+                page += 1
+                logger.info(
+                    f"Sleeping for {REQUESTS_SLEEP_TIME_S} seconds to avoid rate limiting..."
+                )
+                time.sleep(REQUESTS_SLEEP_TIME_S)
+            else:
+                # TODO - could parse ErrorResponse here
+                logger.error(
+                    f"Error retrieving news articles: Status Codes: {response.status_code}; {response.text}",
+                    exc_info=True,
+                )
+                raise Exception(
+                    f"Error retrieving news articles: Status Codes: {response.status_code}; {response.text}"
+                )
+        logger.info(
+            f"Finished retrieving news articles. Total candidates retrieved {len(candidates)}. Max aggregator results: {max_aggregator_results}. Fetched articles count {fetched_articles_count}. Post-processing will now occur to filter and ensure result accuracy..."
+        )
+        return self.postprocess_articles(
+            candidates,
+            topic_id,
+            topic,
+            start_time,
+            end_time,
+            sorting,
+            max_aggregator_results,
+            trusted_news_providers,
+        )
+
+    def preprocess_articles(
+        self, articles: list[the_news_api_com.Article], unique_articles_db: set[str]
+    ) -> list[the_news_api_com.Article]:
+        # TODO - these can be moved to abc when input articles is a common model
+        preprocessed_articles_list = []
+        for article in articles:
+            # TODO - in the future we could rely on additional processing (for example from NewsPlease) to get the published date if the aggregator doesn't provide it
+            if not article.published_at:
+                logger.warning(
+                    f"Article with url: {article.url} has no date published, skipping..."
+                )
+                continue
+            if self.is_unique_article(article, unique_articles_db):
+                preprocessed_articles_list.append(article)
+        return preprocessed_articles_list
+
+    def is_unique_article(
+        self, article: the_news_api_com.Article, unique_articles_db: set[str]
     ) -> bool:
         # currently a unique article is defined by a unique url
         if article.url in unique_articles_db:

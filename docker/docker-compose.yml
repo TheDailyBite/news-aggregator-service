@@ -8,7 +8,7 @@ services:
     environment:
       - AWS_ACCESS_KEY_ID=accesskey
       - AWS_SECRET_ACCESS_KEY=secretkey
-      - AWS_DEFAULT_REGION=us-west-1
+      - AWS_DEFAULT_REGION=us-east-1
     command: -jar DynamoDBLocal.jar -port 8002
 
   s3-local:
@@ -37,7 +37,7 @@ services:
       - "8001:8001"
     environment:
       DYNAMO_ENDPOINT: "http://dynamodb-local:8002"
-      AWS_REGION: "us-west-1"
+      AWS_REGION: "us-east-1"
       AWS_ACCESS_KEY_ID: accesskey
       AWS_SECRET_ACCESS_KEY: secretkey
     depends_on:
@@ -48,12 +48,13 @@ services:
     ports:
       - "8081:8081"
     environment:
-      AWS_REGION: "us-west-1"
+      AWS_REGION: "us-east-1"
       AWS_ACCESS_KEY_ID: accesskey
       AWS_SECRET_ACCESS_KEY: secretkey
-      REGION_NAME: "us-west-1"      
+      REGION_NAME: "us-east-1"      
       DYNAMODB_HOST: "http://dynamodb-local:8002"
       S3_ENDPOINT_URL: "http://s3-local:9000"
+      MINIMUM_ARTICLE_INVENTORY_SIZE_TO_SOURCE: "2"
       
     env_file:
       - secret-envs.env
@@ -80,11 +81,12 @@ services:
           cpus: "3"    
     environment:
       LOCAL_TESTING: "true"
-      AWS_REGION: "us-west-1"
+      AWS_REGION: "us-east-1"
       AWS_ACCESS_KEY_ID: accesskey
       AWS_SECRET_ACCESS_KEY: secretkey
-      REGION_NAME: "us-west-1"      
+      REGION_NAME: "us-east-1"      
       DYNAMODB_HOST: "http://dynamodb-local:8002"
       S3_ENDPOINT_URL: "http://s3-local:9000"
       GENERATE_DUMMY_DATA: "false"      
       ARTICLES_PER_PAGE: "1"
+      API_URL: "http://0.0.0.0:8000"

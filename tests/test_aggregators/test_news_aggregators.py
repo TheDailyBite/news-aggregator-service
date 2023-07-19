@@ -22,6 +22,8 @@ TEST_RAW_ARTICLE_1 = RawArticle(
     title="the article title",
     url="url",
     article_data="article_data",
+    article_text_description="article_text_description",
+    article_text_snippet="",
     sorting="relevance",
 )
 TEST_AGGREGATED_CANDIDATES = [TEST_RAW_ARTICLE_1]
