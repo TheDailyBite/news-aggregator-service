@@ -18,13 +18,13 @@ from langchain.docstore.document import Document
 from langchain.embeddings import HuggingFaceHubEmbeddings, OpenAIEmbeddings
 from langchain.embeddings.base import Embeddings
 from langchain.text_splitter import TokenTextSplitter
-from news_aggregator_data_access_layer.assets.news_assets import RawArticle
+from news_aggregator_data_access_layer.assets.news_assets import RawArticle, RawArticleEmbedding
 from news_aggregator_data_access_layer.config import (
     REGION_NAME,
     S3_ENDPOINT_URL,
     SOURCED_ARTICLES_S3_BUCKET,
 )
-from news_aggregator_data_access_layer.constants import SummarizationLength
+from news_aggregator_data_access_layer.constants import EmbeddingType, SummarizationLength
 from news_aggregator_data_access_layer.models.dynamodb import (
     SourcedArticles,
     get_current_dt_utc_attribute,
@@ -467,32 +467,61 @@ class ArticleClusterGenerator:
     def __init__(self, raw_articles: list[RawArticle]):
         self.raw_articles = raw_articles
         self.clustered_articles: list[list[RawArticle]] = []
+        self.embedding_model_name = "text-embedding-ada-002"
         self._openai_ada2_text_embedding_model = OpenAIEmbeddings(  # type: ignore
-            chunk_size=2048, model="text-embedding-ada-002", openai_api_key=openai_api_key
+            chunk_size=2048, model=self.embedding_model_name, openai_api_key=openai_api_key
         )
         # change if needed. Currently ada2 text is set as default
         self.embeddings_model = self._openai_ada2_text_embedding_model
         self.embeddings_model_cost_per_token = 0.0001 / 1000
+        self.embedding_type = EmbeddingType.TITLE_AND_DESCRIPTION
 
-    def generate_clusters(self) -> list[list[RawArticle]]:
-        if self.clustered_articles:
-            return self.clustered_articles
-        if len(self.raw_articles) <= 2:
-            return [[article] for article in self.raw_articles]
+    def generate_clusters(self) -> tuple[list[list[RawArticle]], list[RawArticleEmbedding]]:
         logger.info(f"Generating clusters for {len(self.raw_articles)} articles...")
         # NOTE - we tried to generate clusters using the title embeddings but it didn't work well
         # now we utilize title + text to generate embeddings and perform clustering. This seems to work well.
-        # we may be able to further improve this
-        docs = [f"{article.title} {article.get_article_text()}" for article in self.raw_articles]
+        # we may be able to further improve this. Reconsider.
+        if self.embedding_type == EmbeddingType.TITLE_AND_CONTENT:
+            docs = [
+                f"{article.title}#{article.get_article_text()}" for article in self.raw_articles
+            ]
+        elif self.embedding_type == EmbeddingType.TITLE_AND_DESCRIPTION:
+            docs = [
+                f"{article.title}#{article.get_article_text_description()}"
+                for article in self.raw_articles
+            ]
+        else:
+            raise NotImplementedError(
+                f"Embedding type {self.embedding_type.value} not implemented."
+            )
         embeddings = self._generate_embeddings(
             docs, self.embeddings_model, self.embeddings_model_cost_per_token
         )
+        article_embeddings: list[RawArticleEmbedding] = self._generate_article_embeddings(
+            embeddings
+        )
+        # with <= 2 articles the clustering algorithm fails. In any case it wouldn't work well.
+        if len(self.raw_articles) <= 2:
+            return [[article] for article in self.raw_articles], article_embeddings
         cluster_labels, n_clusters = self._cluster_embeddings(embeddings)
         self.clustered_articles = self._group_articles_by_cluster(
             self.raw_articles, cluster_labels, n_clusters
         )
         self.__log_cluster_stats(self.clustered_articles)
-        return self.clustered_articles
+        return self.clustered_articles, article_embeddings
+
+    def _generate_article_embeddings(
+        self, embeddings: list[list[float]]
+    ) -> list[RawArticleEmbedding]:
+        return [
+            RawArticleEmbedding(
+                article_id=self.raw_articles[i].article_id,
+                embedding_type=self.embedding_type.value,
+                embedding_model_name=self.embedding_model_name,
+                embedding=embeddings[i],
+            )
+            for i in range(len(self.raw_articles))
+        ]
 
     def __log_cluster_stats(self, clustered_articles: list[list[RawArticle]]) -> None:
         logger.info(f"Generated {len(clustered_articles)} clusters.")

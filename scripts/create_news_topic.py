@@ -4,6 +4,8 @@ import sys
 # this is to make news_aggregator_service available
 sys.path.insert(1, "../")
 
+from typing import Optional
+
 import typer
 from news_aggregator_data_access_layer.constants import SUPPORTED_AGGREGATION_CATEGORIES
 from news_aggregator_data_access_layer.models.dynamodb import (
@@ -28,7 +30,7 @@ def create_news_topic(
     topic: str,
     max_aggregator_results: int,
     daily_publishing_limit: int = DEFAULT_DAILY_PUBLISHING_LIMIT,
-    topic_id: str = None,
+    topic_id: Optional[str] = None,
 ) -> str:
     try:
         create_tables()
