@@ -64,7 +64,9 @@ git push -u origin main
 1. See [Running /scripts](running-/scripts). Navigate to the scripts folder: `cd scripts`
 2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
 3. `python initialize_news_aggregators.py`. Make sure to only include the desired news aggregators.
-4. `python create_news_topic.py` with all the news topics you wish to create. This will request a few parameters.
+4. `python initialize_trusted_news_providers.py` with all the trusted news providers you wish to create. This will request the language. The trusted news providers are stored in a language specific `jsonl` file.
+5. `python create_preview_user.py` to create a user for the private preview.
+6. `python create_news_topic.py` with all the news topics you wish to create. This will request a few parameters.
 
 ### Sourced Article Review
 1. See [Running /scripts](running-/scripts). Navigate to the scripts folder: `cd scripts`
@@ -89,14 +91,33 @@ This assume the news topic already exists. This is a news topic you wish to re-s
 ### Initialize a News Aggregator
 1. Navigate to the scripts folder: `cd scripts`
 2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
-3. Run `python create_news_topic.py` with the appropriate arguments. You can run `python initialize_news_aggregators.py --help` to see the arguments. (example: `python initialize_news_aggregators.py "newsapi.org" "bingnews"`)
+3. Run `python initialize_news_aggregators.py` with the appropriate arguments. You can run `python initialize_news_aggregators.py --help` to see the arguments. (example: `python initialize_news_aggregators.py "newsapi.org" "bingnews"`)
 4. The CLI should guide you through the process of initializing a news aggregator.
+
+### Initialize Trusted News Provicers
+1. Navigate to the scripts folder: `cd scripts`
+2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
+3. Run `python initialize_trusted_news_providers.py` with the appropriate arguments. You can run `python initialize_trusted_news_providers.py --help` to see the arguments. (example: `python initialize_trusted_news_providers.py "en"`).
+4. The CLI should guide you through the process of initializing trusted news providers.
+5. If you run this multiple times it will only initialize non-existing ones and deactivate ones that are no longer in the list.
+
+### Create a Preview User
+1. Navigate to the scripts folder: `cd scripts`
+2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
+3. Run `python create_preview_user.py` with the appropriate arguments. You can run `python create_preview_user.py --help` to see the arguments. (example: `python create_preview_user.py "Michael The Admin"`)
+4. The CLI should guide you through the process of creating a news topic.
 
 ### Create a News Topic
 1. Navigate to the scripts folder: `cd scripts`
 2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
 3. Run `python create_news_topic.py` with the appropriate arguments. You can run `python create_news_topic.py --help` to see the arguments. (example: `python create_news_topic.py --daily-publishing-limit 10 "Generative AI" 25`)
 4. The CLI should guide you through the process of creating a news topic.
+
+### Approve all articles for a news topic (DANGEROUS - should be used for testing)
+1. Navigate to the scripts folder: `cd scripts`
+2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
+3. Run `python approve_pending_articles.py` with the appropriate arguments. You can run `python approve_pending_articles.py --help` to see the arguments. (example: `python approve_pending_articles.py "<topic_id>"`)
+4. The CLI should guide you through the process of approving all articles for a news topic.
 
 ### Local Testing
 The entirety of the aggregation service can be tested local by using the docker-compose file found in the `docker/` sub-directory.
@@ -126,8 +147,8 @@ print(f"Topic ID: {topic_id}")
 ```
 7. Once you have the news topic you wish to aggregate, you can run `aggregate_news_topic(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
 ```python
-data_start = (datetime.now(timezone.utc) - timedelta(days=4)).isoformat()
-data_end = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+data_start = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+data_end = (datetime.now(timezone.utc) - timedelta(days=0)).isoformat()
 event = {
   "Records": [
     {

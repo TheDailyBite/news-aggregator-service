@@ -96,7 +96,7 @@ class EverythingV2Request(CamelModel):
     from_date_iso8061: str = Field(alias="from")
     to_date_iso8061: str = Field(alias="to")
     # The 2-letter ISO-639-1 code of the language you want to get headlines for. Possible options: ar,de,en,es,fr,he,it,nl,no,pt,ru,se,ud,zh.
-    language: str = "en"
+    language: str
     # relevancy = articles more closely related to q come first.
     # popularity = articles from popular sources and publishers come first.
     # publishedAt = newest articles come first.

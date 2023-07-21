@@ -22,7 +22,6 @@ from news_aggregator_data_access_layer.constants import (
 from news_aggregator_data_access_layer.models.dynamodb import (
     AggregatorRuns,
     TrustedNewsProviders,
-    UntrustedNewsProviders,
     get_current_dt_utc_attribute,
     get_uuid4_attribute,
 )
@@ -41,6 +40,7 @@ from news_aggregator_service.config import (
     DEFAULT_MAX_BING_AGGREGATOR_RESULTS,
     NEWS_API_ORG_API_KEY,
     NEWS_API_ORG_API_KEY_SECRET_NAME,
+    NEWS_LANGUAGE,
     REGION_NAME,
     REQUESTS_SLEEP_TIME_S,
     THE_NEWS_API_COM_API_KEY,
@@ -76,7 +76,7 @@ class AggregatorInterface(ABC):
         sorting: str,
         max_aggregator_results: int,
         fetched_articles_count: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         pass
 
@@ -88,7 +88,7 @@ class AggregatorInterface(ABC):
         end_time: datetime,
         max_aggregator_results: int,
         fetched_articles_count: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[AggregationResults, datetime]:
         aggregation_start_dt = datetime.now(timezone.utc)
         aggregation_start_date = dt_to_lexicographic_date_s3_prefix(aggregation_start_dt)
@@ -176,7 +176,7 @@ class AggregatorInterface(ABC):
         end_time: datetime,
         sorting: str,
         max_aggregator_results: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         pass
 
@@ -297,7 +297,7 @@ class BingAggregator(AggregatorInterface):
         end_time: datetime,
         sorting: str,
         max_aggregator_results: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         # TODO - at some point candidates can be some interface class which will have guaranteed certain fields
         aggregated_articles: list[RawArticle] = []
@@ -360,7 +360,7 @@ class BingAggregator(AggregatorInterface):
         sorting: str,
         max_aggregator_results: int,
         fetched_articles_count: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         candidates: list[bing_news.NewsArticle] = []
         offset = 0
@@ -500,13 +500,8 @@ class NewsApiOrgAggregator(AggregatorInterface):
             DATE_SORTING: news_api_org.SortByEnum.PUBLISHED_AT,
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
-        # news api org requires a full url for the excludeDomains parameters (e.g. cnn.com; cnn would not work as expected)
-        self.exclude_providers = ",".join(
-            [unp.provider_url for unp in UntrustedNewsProviders.scan()]
-        )
-        logger.info(
-            f"Aggregator id: {self._aggregator_id}; Exclude providers: {self.exclude_providers}"
-        )
+        # newsapi.org doesn't explicitly state a maximum. We will set an arbitrary value and see if someday it fails
+        self.max_include_domain_filter_count = 500
         # TODO - this should change after upgrading to premium subscription
         # TODO - instead of -30 it can probably be set to the oldest supported publishing date by the aggregator
         self._historical_articles_days_ago_start: timedelta = max(
@@ -548,7 +543,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
         end_time: datetime,
         sorting: str,
         max_aggregator_results: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         # TODO - at some point candidates can be some interface class which will have guaranteed certain fields
         aggregated_articles: list[RawArticle] = []
@@ -558,6 +553,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
             raise NotImplementedError(
                 f"Sorting by {sorting} is not implemented yet in post-processing."
             )
+        include_domains = [tnp.provider_domain for tnp in trusted_news_providers]
         article_idx = 0
         for article in candidates:
             if len(aggregated_articles) >= max_aggregator_results:
@@ -601,6 +597,15 @@ class NewsApiOrgAggregator(AggregatorInterface):
                     f"Article with url: {article.url} has no processed data, skipping..."
                 )
                 continue
+            if not raw_article.get_article_text_description():
+                logger.warning(f"Article with url: {article.url} has no description, skipping...")
+                continue
+            if not raw_article.provider_domain in include_domains:
+                logger.warning(
+                    f"Article with url: {raw_article.url} has provider domain {raw_article.provider_domain} which is not in the list of trusted news providers. This should not have reached postprocessing. skipping..."
+                )
+                # TODO - emit metric
+                continue
             aggregated_articles.append(raw_article)
             article_idx += 1
         return aggregated_articles, min_start_time, max_end_time
@@ -614,13 +619,21 @@ class NewsApiOrgAggregator(AggregatorInterface):
         sorting: str,
         max_aggregator_results: int,
         fetched_articles_count: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         candidates: list[news_api_org.Article] = []
         total_matches = 0
         page = self.start_page
         data_from_date, data_to_date = self._get_data_timeframe(start_time, end_time)
         topic = urllib.parse.quote_plus(topic)
+        if len(trusted_news_providers) > self.max_include_domain_filter_count:
+            raise ValueError(
+                f"Cannot include more than {self.max_include_domain_filter_count} domains in the include_domains filter for aggregator {self.aggregator_id}. Requested include domains count {len(trusted_news_providers)}"
+            )
+        include_domains = ",".join(
+            [provider.provider_domain for provider in trusted_news_providers]
+        )
+        logger.info(f"Include domains for aggregator {self.aggregator_id}: {include_domains}")
         logger.info(
             f"Retrieving a max of {fetched_articles_count} news articles results for search term: {topic}) and timeframe: {data_from_date} - {data_to_date}..."
         )
@@ -643,8 +656,9 @@ class NewsApiOrgAggregator(AggregatorInterface):
                 to_date_iso8061=data_to_date,
                 sort_by=self.sorting_api_param,
                 page=page,
-                exclude_domains=self.exclude_providers,
+                domains=include_domains,
                 search_in=self.search_in,
+                language=NEWS_LANGUAGE,
             )
             # Send API request
             response = requests.get(
@@ -763,13 +777,9 @@ class TheNewsApiComAggregator(AggregatorInterface):
             DATE_SORTING: the_news_api_com.SortByEnum.PUBLISHED_AT,
         }
         self.sorting_api_param = self.sorting_mapping[self._sorting]
-        # thenewsapi.com requires a full url for the excludeDomains parameters (e.g. cnn.com; cnn would not work as expected)
-        self.exclude_providers = ",".join(
-            [unp.provider_url for unp in UntrustedNewsProviders.scan()]
-        )
-        logger.info(
-            f"Aggregator id: {self._aggregator_id}; Exclude providers: {self.exclude_providers}"
-        )
+        # thenewsapi.com doesn't explicitly state a maximum. I thought I read somewhere that it is 50 but I can't find it now
+        # I'll set it to 50 for now and then can verify that it can be increased if we do add sources
+        self.max_include_domain_filter_count = 50
         # TODO - this should change after upgrading to premium subscription
         # TODO - instead of -30 it can probably be set to the oldest supported publishing date by the aggregator
         self._historical_articles_days_ago_start: timedelta = max(
@@ -811,7 +821,7 @@ class TheNewsApiComAggregator(AggregatorInterface):
         end_time: datetime,
         sorting: str,
         max_aggregator_results: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         # TODO - at some point candidates can be some interface class which will have guaranteed certain fields
         aggregated_articles: list[RawArticle] = []
@@ -822,6 +832,7 @@ class TheNewsApiComAggregator(AggregatorInterface):
                 f"Sorting by {sorting} is not implemented yet in post-processing."
             )
         article_idx = 0
+        include_domains = [tnp.provider_domain for tnp in trusted_news_providers]
         for article in candidates:
             if len(aggregated_articles) >= max_aggregator_results:
                 break
@@ -865,9 +876,14 @@ class TheNewsApiComAggregator(AggregatorInterface):
                     f"Article with url: {article.url} has no processed data, skipping..."
                 )
                 continue
-            # TODO ?
             if not raw_article.get_article_text_description():
                 logger.warning(f"Article with url: {article.url} has no description, skipping...")
+                continue
+            if not raw_article.provider_domain in include_domains:
+                logger.warning(
+                    f"Article with url: {raw_article.url} has provider domain {raw_article.provider_domain} which is not in the list of trusted news providers. This should not have reached postprocessing. skipping..."
+                )
+                # TODO - emit metric
                 continue
             aggregated_articles.append(raw_article)
             article_idx += 1
@@ -882,13 +898,21 @@ class TheNewsApiComAggregator(AggregatorInterface):
         sorting: str,
         max_aggregator_results: int,
         fetched_articles_count: int,
-        trusted_news_providers: Optional[list[TrustedNewsProviders]] = [],
+        trusted_news_providers: list[TrustedNewsProviders],
     ) -> tuple[list[RawArticle], datetime, datetime]:
         candidates: list[the_news_api_com.Article] = []
         total_matches = 0
         page = self.start_page
         data_from_date, data_to_date = self._get_data_timeframe(start_time, end_time)
         topic = urllib.parse.quote_plus(topic)
+        if len(trusted_news_providers) > self.max_include_domain_filter_count:
+            raise ValueError(
+                f"Cannot include more than {self.max_include_domain_filter_count} domains in the include_domains filter for aggregator {self.aggregator_id}. Requested include domains count {len(trusted_news_providers)}"
+            )
+        include_domains = ",".join(
+            [provider.provider_domain for provider in trusted_news_providers]
+        )
+        logger.info(f"Include domains for aggregator {self.aggregator_id}: {include_domains}")
         logger.info(
             f"Retrieving a max of {fetched_articles_count} news articles results for search term: {topic}) and timeframe: {data_from_date} - {data_to_date}..."
         )
@@ -909,12 +933,12 @@ class TheNewsApiComAggregator(AggregatorInterface):
                 api_token=self.api_key,
                 search=topic,
                 search_fields=self.search_in,
-                exclude_domains=self.exclude_providers,
+                domains=include_domains,
                 published_after=data_from_date,
                 published_before=data_to_date,
                 sort=self.sorting_api_param,
                 page=page,
-                language="en",
+                language=NEWS_LANGUAGE,
             )
             # Send API request
             response = requests.get(

@@ -474,7 +474,7 @@ class ArticleClusterGenerator:
         # change if needed. Currently ada2 text is set as default
         self.embeddings_model = self._openai_ada2_text_embedding_model
         self.embeddings_model_cost_per_token = 0.0001 / 1000
-        self.embedding_type = EmbeddingType.TITLE_AND_DESCRIPTION
+        self.embedding_type = EmbeddingType.DESCRIPTION
 
     def generate_clusters(self) -> tuple[list[list[RawArticle]], list[RawArticleEmbedding]]:
         logger.info(f"Generating clusters for {len(self.raw_articles)} articles...")
@@ -490,6 +490,8 @@ class ArticleClusterGenerator:
                 f"{article.title}#{article.get_article_text_description()}"
                 for article in self.raw_articles
             ]
+        elif self.embedding_type == EmbeddingType.DESCRIPTION:
+            docs = [article.get_article_text_description() for article in self.raw_articles]
         else:
             raise NotImplementedError(
                 f"Embedding type {self.embedding_type.value} not implemented."
@@ -596,7 +598,7 @@ class ArticleClusterGenerator:
         max_silhouette_avg_labels = iter_labels[max_silhouette_avg_idx]
         n_clusters = range_n_clusters[max_silhouette_avg_idx]
         logger.info(
-            f"Optimal number of clusters: {n_clusters}. Max silhouette score: {max_silhouette_avg}. Max silhouette score labels: {max_silhouette_avg_labels}. Max iter index: {max_silhouette_avg_idx}"
+            f"Optimal number of clusters: {n_clusters}. Max silhouette score: {max_silhouette_avg}. Max silhouette score labels: {max_silhouette_avg_labels}. Max iter index: {max_silhouette_avg_idx}. All silhouette scores: {silhouette_avg_scores}"
         )
         return max_silhouette_avg_labels, n_clusters
 

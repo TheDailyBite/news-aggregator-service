@@ -1,0 +1,50 @@
+{"domain": "cnn.com", "provider_name": "Cnn", "country": "USA"}
+{"domain": "nytimes.com", "provider_name": "Ny Times", "country": "USA"}
+{"domain": "msn.com", "provider_name": "Msn", "country": "USA"}
+{"domain": "foxnews.com", "provider_name": "Fox News", "country": "USA"}
+{"domain": "nypost.com", "provider_name": "Ny Post", "country": "USA"}
+{"domain": "bbc.com", "provider_name": "Bbc", "country": "UK"}
+{"domain": "news.google.com", "provider_name": "Google News", "country": "USA"}
+{"domain": "finance.yahoo.com", "provider_name": "Yahoo Finance", "country": "USA"}
+{"domain": "washingtonpost.com", "provider_name": "Washington Post", "country": "USA"}
+{"domain": "usatoday.com", "provider_name": "Usa Today", "country": "USA"}
+{"domain": "dailymail.co.uk", "provider_name": "Daily Mail", "country": "UK"}
+{"domain": "people.com", "provider_name": "People", "country": "USA"}
+{"domain": "cnbc.com", "provider_name": "Cnbc", "country": "USA"}
+{"domain": "news.yahoo.com", "provider_name": "Yahoo News", "country": "USA"}
+{"domain": "forbes.com", "provider_name": "Forbes", "country": "USA"}
+{"domain": "apnews.com", "provider_name": "Ap News", "country": "USA"}
+{"domain": "cbsnews.com", "provider_name": "Cbs News", "country": "USA"}
+{"domain": "theguardian.com", "provider_name": "The Guardian", "country": "UK"}
+{"domain": "nbcnews.com", "provider_name": "Nbc News", "country": "USA"}
+{"domain": "wsj.com", "provider_name": "Wall Street Journal", "country": "USA"}
+{"domain": "buzzfeed.com", "provider_name": "Buzz Feed", "country": "USA"}
+{"domain": "the-sun.com", "provider_name": "The Sun", "country": "UK"}
+{"domain": "businessinsider.com", "provider_name": "Business Insider", "country": "USA"}
+{"domain": "politico.com", "provider_name": "Politico", "country": "USA"}
+{"domain": "reuters.com", "provider_name": "Reuters", "country": "USA"}
+//{"domain": "abcnews.go.com", "provider_name": "Abcnews Go", "country": "USA"} - this produces bad content when parse so we exclude it
+{"domain": "huffpost.com", "provider_name": "Huffington Post", "country": "USA"}
+{"domain": "thehill.com", "provider_name": "The Hill", "country": "USA"}
+{"domain": "drudgereport.com", "provider_name": "Drudge Report", "country": "USA"}
+{"domain": "usnews.com", "provider_name": "Us News", "country": "USA"}
+{"domain": "newsweek.com", "provider_name": "Newsweek", "country": "USA"}
+{"domain": "independent.co.uk", "provider_name": "Independent", "country": "UK"}
+{"domain": "latimes.com", "provider_name": "Los Angeles Times", "country": "USA"}
+{"domain": "breitbart.com", "provider_name": "Breitbart", "country": "USA"}
+{"domain": "thedailybeast.com", "provider_name": "The Daily Beast", "country": "USA"}
+{"domain": "variety.com", "provider_name": "Variety", "country": "USA"}
+{"domain": "patch.com", "provider_name": "Patch", "country": "USA"}
+{"domain": "bloomberg.com", "provider_name": "Bloomberg", "country": "USA"}
+{"domain": "theatlantic.com", "provider_name": "The Atlantic", "country": "USA"}
+{"domain": "theverge.com", "provider_name": "The Verge", "country": "USA"}
+{"domain": "sfgate.com", "provider_name": "Sfgate", "country": "USA"}
+{"domain": "newsmax.com", "provider_name": "Newsmax", "country": "USA"}
+{"domain": "substack.com", "provider_name": "Substack", "country": "USA"}
+{"domain": "today.com", "provider_name": "Today", "country": "USA"}
+{"domain": "dailywire.com", "provider_name": "The Daily Wire", "country": "USA"}
+{"domain": "msnbc.com", "provider_name": "Msnbc", "country": "USA"}
+{"domain": "news.ycombinator.com", "provider_name": "Hacker News", "country": "USA"}
+{"domain": "ksl.com", "provider_name": "Ksl", "country": "USA"}
+{"domain": "theepochtimes.com", "provider_name": "The Epoch Times", "country": "USA"}
+{"domain": "thegatewaypundit.com", "provider_name": "The Gateway Pundit", "country": "USA"}

@@ -29,6 +29,7 @@ from news_aggregator_service.config import (
     DEFAULT_DAILY_PUBLISHING_LIMIT,
     LOCAL_TESTING,
     NEWS_AGGREGATION_QUEUE_NAME,
+    NEWS_LANGUAGE,
     NEWS_SOURCING_QUEUE_NAME,
 )
 from news_aggregator_service.exceptions import PreviewUserNotExistsException
@@ -41,9 +42,7 @@ logger = setup_logger(__name__)
 
 
 def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
-    if aggregator_id == NewsAggregatorsEnum.BING_NEWS.value:
-        return BingAggregator()
-    elif aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
+    if aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
         return NewsApiOrgAggregator()
     elif aggregator_id == NewsAggregatorsEnum.THE_NEWS_API_COM.value:
         return TheNewsApiComAggregator()
@@ -265,7 +264,14 @@ def aggregate_news_topic(event, context):
         logger.info(
             f"Aggregating news from aggregator {aggregator_id} for topic id: {topic_id} (topic: {news_topic.topic}). Max aggregator results {max_aggregator_results}"
         )
-        trusted_news_providers = [tnp for tnp in TrustedNewsProviders.scan()]
+        trusted_news_providers = [
+            tnp
+            for tnp in TrustedNewsProviders.query(
+                NEWS_LANGUAGE, filter_condition=TrustedNewsProviders.is_active == True
+            )
+        ]
+        if len(trusted_news_providers) == 0:
+            raise ValueError(f"No active trusted news providers found for language {NEWS_LANGUAGE}")
         aggregator = fetch_aggregator(aggregator_id)
         aggregation_result, end_published_dt = aggregator.aggregate_candidates_for_topic(
             news_topic.topic_id,
