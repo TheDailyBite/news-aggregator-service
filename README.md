@@ -65,7 +65,7 @@ git push -u origin main
 2. Make sure to have credentials available for AWS exported as environment variables. Short-term creds can be retrieved from AWS SSO.
 3. `python initialize_news_aggregators.py`. Make sure to only include the desired news aggregators.
 4. `python initialize_trusted_news_providers.py` with all the trusted news providers you wish to create. This will request the language. The trusted news providers are stored in a language specific `jsonl` file.
-5. `python create_preview_user.py` to create a user for the private preview.
+5. `python initialize_preview_users.py` to create a the private preview users.
 6. `python create_news_topic.py` with all the news topics you wish to create. This will request a few parameters.
 
 ### Sourced Article Review
@@ -147,9 +147,9 @@ print(f"Topic ID: {topic_id}")
 ```
 7. Once you have the news topic you wish to aggregate, you can run `aggregate_news_topic(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
 ```python
-data_start = (datetime(2023,7,20, tzinfo=timezone.utc)).isoformat()
-data_end = (datetime(2023,7,21, tzinfo=timezone.utc)).isoformat()
-topic_id = 	"9ba3e47e-72ca-4a5b-a7a6-c8121a39bb6b",
+data_start = (datetime(2023,7,18, tzinfo=timezone.utc)).isoformat()
+data_end = (datetime(2023,7,19, tzinfo=timezone.utc)).isoformat()
+topic_id = 	"6f8264a1-fbbb-41ed-8013-0c6f2469bc34"
 event = {
   "Records": [
     {
@@ -189,7 +189,7 @@ for topic_id, dates in topics_to_source:
 
 
 topics_to_source = [
-  ("6f8264a1-fbbb-41ed-8013-0c6f2469bc34", [datetime(2023, 7, 20, tzinfo=timezone.utc), datetime(2023, 7, 21, tzinfo=timezone.utc), datetime(2023, 7, 22, tzinfo=timezone.utc)]),  
+  ("6f8264a1-fbbb-41ed-8013-0c6f2469bc34", [datetime(2023, 7, 18, tzinfo=timezone.utc)]),  
 ]
 for topic_id, dates in topics_to_source:
   for date in dates:

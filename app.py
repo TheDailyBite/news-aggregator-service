@@ -237,12 +237,17 @@ def sourcing_scheduler(event, context):
 
 
 def aggregate_news_topic(event, context):
+    topic_id = "n/a"
+    aggregator_id = "n/a"
     try:
         logger.info(f"Received event: {event}")
-        event = json.loads(event)
+        if isinstance(event, str):
+            event = json.loads(event)
         if len(event["Records"]) != 1:
             raise Exception(f"Expected 1 record but received {len(event['Records'])}")
         message_body = event["Records"][0]["body"]
+        if isinstance(message_body, str):
+            message_body = json.loads(message_body)
         topic_id = message_body.get("topic_id", "")
         aggregator_id = message_body.get("aggregator_id", "")
         news_aggregator = NewsAggregators.get(
@@ -300,14 +305,20 @@ def aggregate_news_topic(event, context):
 
 
 def source_news_topic(event, context):
+    topic_id = "n/a"
+    top_k = -1
     try:
         from news_aggregator_service.sourcers.naive import NaiveSourcer
 
         logger.info(f"Received event: {event}")
         event = json.loads(event)
+        if isinstance(event, str):
+            event = json.loads(event)
         if len(event["Records"]) != 1:
             raise Exception(f"Expected 1 record but received {len(event['Records'])}")
         message_body = event["Records"][0]["body"]
+        if isinstance(message_body, str):
+            message_body = json.loads(message_body)
         topic_id = message_body.get("topic_id", "")
         if not topic_id:
             raise ValueError("topic_id must be specified")
