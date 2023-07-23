@@ -147,8 +147,9 @@ print(f"Topic ID: {topic_id}")
 ```
 7. Once you have the news topic you wish to aggregate, you can run `aggregate_news_topic(event, None)`. This will aggregate the news for the supplied news topic (by `topic_id`) and timeframe specified (feel free to adjust these values)
 ```python
-data_start = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-data_end = (datetime.now(timezone.utc) - timedelta(days=0)).isoformat()
+data_start = (datetime(2023,7,20, tzinfo=timezone.utc)).isoformat()
+data_end = (datetime(2023,7,21, tzinfo=timezone.utc)).isoformat()
+topic_id = 	"9ba3e47e-72ca-4a5b-a7a6-c8121a39bb6b",
 event = {
   "Records": [
     {
@@ -188,7 +189,7 @@ for topic_id, dates in topics_to_source:
 
 
 topics_to_source = [
-  ("df55f9a9-7cfa-46ca-88d1-a367d565f1b1", [datetime(2023, 7, 15, tzinfo=timezone.utc), datetime(2023, 7, 16, tzinfo=timezone.utc), datetime(2023, 7, 17, tzinfo=timezone.utc)]),  
+  ("6f8264a1-fbbb-41ed-8013-0c6f2469bc34", [datetime(2023, 7, 20, tzinfo=timezone.utc), datetime(2023, 7, 21, tzinfo=timezone.utc), datetime(2023, 7, 22, tzinfo=timezone.utc)]),  
 ]
 for topic_id, dates in topics_to_source:
   for date in dates:

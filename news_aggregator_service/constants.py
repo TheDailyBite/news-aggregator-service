@@ -11,7 +11,7 @@ SUPPORTED_SORTING = {DATE_SORTING, RELEVANCE_SORTING, POPULARITY_SORTING}
 # it could be of course that an aggregator doesn't even go this far back in time which is fine.
 OLDEST_SUPPORTED_PUBLISHING_DATE = datetime(2023, 1, 1, tzinfo=timezone.utc)
 
-# TODO - move to app config
+# TODO - move to app config; # TODO - maybe also add the provider in the template and allow the LLM to mention where it gets each piece of information.
 SUMMARIZATION_FAILURE_MESSAGE = "Summarization failed."
 ARTICLE_SEPARATOR = "===================="
 MEDIUM_SUMMARY_DEFINITION = "The summary should be a medium length summary. A medium length summary is between 300-600 words."
@@ -22,6 +22,7 @@ REFINE_REWRITE_PROMPT_TEMPLATE = (
     NEWS_REPORTED_INTRO
     + """
     Your task is to rewrite a news article to ensure that it is unbiased and objective.
+    Write the news article in a few paragraphs, if needed, where each paragraph represents a different key point in the news article.
 
     "{text}"
 
@@ -38,6 +39,7 @@ REFINE_REWRITE_REFINE_STEP_TEMPLATE = (
     
     Given the new context, refine the original rewritten news article.
     If the context isn't useful, return the original rewritten news article.
+    Write the news article in a few paragraphs, if needed, where each paragraph represents a different key point in the news article.
     REWRITE:"""
 )
 # title rewrite
@@ -56,6 +58,7 @@ SUMMARIZATION_TEMPLATE = (
     NEWS_REPORTED_INTRO
     + """
     Your task is to create a summary for a news article to ensure that it is unbiased and objective.
+    Write the news article in a few paragraphs, if needed, where each paragraph represents a different key point in the news article.
     ####summary_definition####
 
     "{text}"

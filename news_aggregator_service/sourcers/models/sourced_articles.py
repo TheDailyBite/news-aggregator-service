@@ -24,7 +24,11 @@ from news_aggregator_data_access_layer.config import (
     S3_ENDPOINT_URL,
     SOURCED_ARTICLES_S3_BUCKET,
 )
-from news_aggregator_data_access_layer.constants import EmbeddingType, SummarizationLength
+from news_aggregator_data_access_layer.constants import (
+    ArticleApprovalStatus,
+    EmbeddingType,
+    SummarizationLength,
+)
 from news_aggregator_data_access_layer.models.dynamodb import (
     SourcedArticles,
     get_current_dt_utc_attribute,
@@ -362,6 +366,7 @@ class SourcedArticle:
             full_summary_ref=full_summary_key,
             sourcing_run_id=self.sourcing_run_id,
             article_processing_cost=self.article_processing_cost,
+            article_approval_status=ArticleApprovalStatus.APPROVED,  # TODO - NOTE - this is temporary to assess the quality of articles
         )
         logger.info(
             f"Saving sourced article for partition key {self.topic_id} and range key {self.sourced_article_id} to dynamodb..."
@@ -474,43 +479,114 @@ class ArticleClusterGenerator:
         # change if needed. Currently ada2 text is set as default
         self.embeddings_model = self._openai_ada2_text_embedding_model
         self.embeddings_model_cost_per_token = 0.0001 / 1000
-        self.embedding_type = EmbeddingType.DESCRIPTION
+        self.embedding_type = EmbeddingType.TITLE_AND_DESCRIPTION_AND_CONTENT_CONCAT
 
-    def generate_clusters(self) -> tuple[list[list[RawArticle]], list[RawArticleEmbedding]]:
-        logger.info(f"Generating clusters for {len(self.raw_articles)} articles...")
-        # NOTE - we tried to generate clusters using the title embeddings but it didn't work well
-        # now we utilize title + text to generate embeddings and perform clustering. This seems to work well.
-        # we may be able to further improve this. Reconsider.
-        if self.embedding_type == EmbeddingType.TITLE_AND_CONTENT:
-            docs = [
-                f"{article.title}#{article.get_article_text()}" for article in self.raw_articles
-            ]
-        elif self.embedding_type == EmbeddingType.TITLE_AND_DESCRIPTION:
-            docs = [
-                f"{article.title}#{article.get_article_text_description()}"
-                for article in self.raw_articles
-            ]
+    def _generate_docs(self) -> list[str]:
+        logger.info(
+            f"Generating docs for {len(self.raw_articles)} articles for embedding type {self.embedding_type.value}..."
+        )
+        if self.embedding_type == EmbeddingType.TITLE:
+            docs = [article.title for article in self.raw_articles]
         elif self.embedding_type == EmbeddingType.DESCRIPTION:
             docs = [article.get_article_text_description() for article in self.raw_articles]
+        elif self.embedding_type == EmbeddingType.CONTENT:
+            docs = [article.get_article_text() for article in self.raw_articles]
+        elif self.embedding_type == EmbeddingType.TITLE_AND_DESCRIPTION_CONCAT:
+            docs = [
+                f"{article.title} {article.get_article_text_description()}"
+                for article in self.raw_articles
+            ]
+        elif self.embedding_type == EmbeddingType.TITLE_AND_CONTENT_CONCAT:
+            docs = [
+                f"{article.title} {article.get_article_text()}" for article in self.raw_articles
+            ]
+        elif self.embedding_type == EmbeddingType.DESCRIPTION_AND_CONTENT_CONCAT:
+            docs = [
+                f"{article.get_article_text_description()} {article.get_article_text()}"
+                for article in self.raw_articles
+            ]
+        elif self.embedding_type == EmbeddingType.TITLE_AND_DESCRIPTION_AND_CONTENT_CONCAT:
+            docs = [
+                f"{article.title} {article.get_article_text_description()} {article.get_article_text()}"
+                for article in self.raw_articles
+            ]
+        elif self.embedding_type == EmbeddingType.TITLE_AND_DESCRIPTION_AVG:
+            docs = [
+                item
+                for article in self.raw_articles
+                for item in [article.title, article.get_article_text_description()]
+            ]
+        elif self.embedding_type == EmbeddingType.TITLE_AND_CONTENT_AVG:
+            docs = [
+                item
+                for article in self.raw_articles
+                for item in [article.title, article.get_article_text()]
+            ]
+        elif self.embedding_type == EmbeddingType.DESCRIPTION_AND_CONTENT_AVG:
+            docs = [
+                item
+                for article in self.raw_articles
+                for item in [article.get_article_text_description(), article.get_article_text()]
+            ]
+        elif self.embedding_type == EmbeddingType.TITLE_AND_DESCRIPTION_AND_CONTENT_AVG:
+            docs = [
+                item
+                for article in self.raw_articles
+                for item in [
+                    article.title,
+                    article.get_article_text_description(),
+                    article.get_article_text(),
+                ]
+            ]
         else:
             raise NotImplementedError(
                 f"Embedding type {self.embedding_type.value} not implemented."
             )
+        docs = [doc.replace("\n", " ") for doc in docs]
+        return docs
+
+    def _combine_embeddings(self, embeddings: list[list[float]]) -> list[list[float]]:
+        if len(embeddings) % len(self.raw_articles) != 0:
+            raise ValueError(
+                f"Embeddings length {len(embeddings)} is not a multiple of raw articles length {len(self.raw_articles)}"
+            )
+        attributes_per_article = len(embeddings) // len(self.raw_articles)
+        combined_embeddings = []
+        for i in range(0, len(embeddings), attributes_per_article):
+            attr_embeddings = []
+            for j in range(attributes_per_article):
+                attr_embeddings.append(embeddings[i + j])
+            avg_attr_embeddings = [np.mean(values) for values in zip(*attr_embeddings)]
+            combined_embeddings.append(avg_attr_embeddings)
+        if len(combined_embeddings) != len(self.raw_articles):
+            raise ValueError(
+                f"Combined embeddings length {len(combined_embeddings)} is not equal to raw articles length {len(self.raw_articles)}"
+            )
+        return combined_embeddings
+
+    def generate_clusters(self) -> tuple[list[list[RawArticle]], list[RawArticleEmbedding], float]:
+        logger.info(f"Generating clusters for {len(self.raw_articles)} articles...")
+        docs: list[str] = self._generate_docs()
         embeddings = self._generate_embeddings(
             docs, self.embeddings_model, self.embeddings_model_cost_per_token
         )
+        if len(embeddings) != len(self.raw_articles):
+            embeddings = self._combine_embeddings(embeddings)
         article_embeddings: list[RawArticleEmbedding] = self._generate_article_embeddings(
             embeddings
         )
         # with <= 2 articles the clustering algorithm fails. In any case it wouldn't work well.
         if len(self.raw_articles) <= 2:
-            return [[article] for article in self.raw_articles], article_embeddings
-        cluster_labels, n_clusters = self._cluster_embeddings(embeddings)
+            return [[article] for article in self.raw_articles], article_embeddings, float("inf")
+        cluster_labels, n_clusters, clustering_score = self._cluster_embeddings(embeddings)
+        logger.info(
+            f"Generated {n_clusters} clusters with clustering score {clustering_score} for embedding type {self.embedding_type.value}..."
+        )
         self.clustered_articles = self._group_articles_by_cluster(
             self.raw_articles, cluster_labels, n_clusters
         )
         self.__log_cluster_stats(self.clustered_articles)
-        return self.clustered_articles, article_embeddings
+        return self.clustered_articles, article_embeddings, clustering_score
 
     def _generate_article_embeddings(
         self, embeddings: list[list[float]]
@@ -572,10 +648,12 @@ class ArticleClusterGenerator:
         )
         return embeddings
 
-    def _cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+    def _cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int, float]:
         return self._hac_cluster_embeddings(embeddings)
 
-    def _hac_cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+    def _hac_cluster_embeddings(
+        self, embeddings: list[list[float]]
+    ) -> tuple[list[int], int, float]:
         logger.info("Clustering embeddings using HAC...")
         range_n_clusters = range(2, len(embeddings))
         embeddings_np = np.array(embeddings, dtype=np.float32)
@@ -600,9 +678,11 @@ class ArticleClusterGenerator:
         logger.info(
             f"Optimal number of clusters: {n_clusters}. Max silhouette score: {max_silhouette_avg}. Max silhouette score labels: {max_silhouette_avg_labels}. Max iter index: {max_silhouette_avg_idx}. All silhouette scores: {silhouette_avg_scores}"
         )
-        return max_silhouette_avg_labels, n_clusters
+        return max_silhouette_avg_labels, n_clusters, max_silhouette_avg
 
-    def _kmeans_cluster_embeddings(self, embeddings: list[list[float]]) -> tuple[list[int], int]:
+    def _kmeans_cluster_embeddings(
+        self, embeddings: list[list[float]]
+    ) -> tuple[list[int], int, float]:
         logger.info("Clustering embeddings using KMeans...")
         range_n_clusters = range(2, len(embeddings))
         embeddings_np = np.array(embeddings, dtype=np.float32)
@@ -631,4 +711,4 @@ class ArticleClusterGenerator:
         logger.info(
             f"Optimal number of clusters: {n_clusters}. Max silhouette score: {max_silhouette_avg}. Max silhouette score labels: {max_silhouette_avg_labels}. Max iter index: {max_silhouette_avg_idx}"
         )
-        return max_silhouette_avg_labels, n_clusters
+        return max_silhouette_avg_labels, n_clusters, max_silhouette_avg

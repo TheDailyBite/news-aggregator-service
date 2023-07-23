@@ -770,7 +770,7 @@ class TheNewsApiComAggregator(AggregatorInterface):
         self.request_date_format = "%Y-%m-%dT%H:%M:%S"
         self.start_page = 1
         self._sorting = RELEVANCE_SORTING
-        self.search_in = the_news_api_com.SearchInEnum.TITLE_DESCRIPTION.value
+        self.search_in = the_news_api_com.SearchInEnum.TITLE_DESCRIPTION_KEYWORDS.value
         assert self._sorting in SUPPORTED_SORTING
         self.sorting_mapping = {
             RELEVANCE_SORTING: the_news_api_com.SortByEnum.RELEVANCE,

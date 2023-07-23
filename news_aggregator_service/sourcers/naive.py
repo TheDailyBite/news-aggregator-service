@@ -73,7 +73,11 @@ class NaiveSourcer:
     def cluster_articles(self) -> list[list[RawArticle]]:
         """This clusters the articles in the article inventory into clusters of similar articles."""
         article_cluster_gen = ArticleClusterGenerator(self.article_inventory)
-        clustered_articles, article_embeddings = article_cluster_gen.generate_clusters()
+        (
+            clustered_articles,
+            article_embeddings,
+            clustering_score,
+        ) = article_cluster_gen.generate_clusters()
         if len(self.article_inventory) != len(article_embeddings):
             logger.error(
                 f"Number of articles ({len(self.article_inventory)}) does not match number of embeddings ({len(article_embeddings)})."
