@@ -311,7 +311,6 @@ def source_news_topic(event, context):
         from news_aggregator_service.sourcers.naive import NaiveSourcer
 
         logger.info(f"Received event: {event}")
-        event = json.loads(event)
         if isinstance(event, str):
             event = json.loads(event)
         if len(event["Records"]) != 1:
