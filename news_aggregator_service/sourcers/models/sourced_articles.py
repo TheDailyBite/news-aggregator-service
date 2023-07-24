@@ -186,7 +186,7 @@ class SourcedArticle:
             input_variables=["text"],
         )
         self._medium_summarization_stuff_llm_chain = load_summarize_chain(
-            summarization_open_ai,
+            long_summarization_open_ai,
             chain_type="stuff",
             prompt=self._medium_summarization_prompt_template,
         )
@@ -197,7 +197,7 @@ class SourcedArticle:
             input_variables=["text"],
         )
         self._short_summarization_stuff_llm_chain = load_summarize_chain(
-            summarization_open_ai,
+            long_summarization_open_ai,
             chain_type="stuff",
             prompt=self._short_summarization_prompt_template,
         )
