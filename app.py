@@ -172,7 +172,7 @@ def aggregation_scheduler(event, context):
             f"Failed to schedule aggregation requests with error: {e}",
             exc_info=True,
         )
-        return {"statusCode": 500, "body": {"error": str(e)}}
+        raise  # NOTE - we raise since we rely on the AWS/Lambda Errors metric to alert us - this could change in the future if we emit our own metrics
 
 
 def enqueue_aggregation_request(queue_name: str, message_body: str, message_group_id: str) -> None:
@@ -241,7 +241,7 @@ def sourcing_scheduler(event, context):
             f"Failed to schedule sourcing requests with error: {e}",
             exc_info=True,
         )
-        return {"statusCode": 500, "body": {"error": str(e)}}
+        raise  # NOTE - we raise since we rely on the AWS/Lambda Errors metric to alert us - this could change in the future if we emit our own metrics
 
 
 def aggregate_news_topic(event, context):
@@ -309,7 +309,7 @@ def aggregate_news_topic(event, context):
             f"Failed to aggregate topic id {topic_id} for aggregator {aggregator_id} with error: {e}",
             exc_info=True,
         )
-        return {"statusCode": 500, "body": {"error": str(e)}}
+        raise  # NOTE - we raise since we rely on the AWS/Lambda Errors metric to alert us - this could change in the future if we emit our own metrics
 
 
 def source_news_topic(event, context):
@@ -379,4 +379,4 @@ def source_news_topic(event, context):
             f"Failed to source topic id {topic_id} for top k {top_k} with error: {e}",
             exc_info=True,
         )
-        return {"statusCode": 500, "body": {"error": str(e)}}
+        raise  # NOTE - we raise since we rely on the AWS/Lambda Errors metric to alert us - this could change in the future if we emit our own metrics
