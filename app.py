@@ -31,6 +31,7 @@ from news_aggregator_service.config import (
     NEWS_AGGREGATION_QUEUE_NAME,
     NEWS_LANGUAGE,
     NEWS_SOURCING_QUEUE_NAME,
+    OVERRIDE_OLDEST_PUBLISHING_DATE_DAYS_AGO,
 )
 from news_aggregator_service.exceptions import PreviewUserNotExistsException
 
@@ -113,6 +114,13 @@ def get_oldest_publishing_date() -> datetime:
     oldest_publishing_date: datetime = datetime.now(timezone.utc) + min(
         supported_historical_articles_days_ago_start
     )
+    if OVERRIDE_OLDEST_PUBLISHING_DATE_DAYS_AGO is not None:
+        logger.info(
+            f"Overriding oldest publishing date with {OVERRIDE_OLDEST_PUBLISHING_DATE_DAYS_AGO} days ago"
+        )
+        oldest_publishing_date = datetime.now(timezone.utc) + timedelta(
+            days=-int(OVERRIDE_OLDEST_PUBLISHING_DATE_DAYS_AGO)
+        )
     logger.info(f"Oldest publishing date is {oldest_publishing_date}")
     return oldest_publishing_date
 
