@@ -1,4 +1,4 @@
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 import json
 import math
@@ -47,6 +47,8 @@ def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
         return NewsApiOrgAggregator()
     elif aggregator_id == NewsAggregatorsEnum.THE_NEWS_API_COM.value:
         return TheNewsApiComAggregator()
+    elif aggregator_id == NewsAggregatorsEnum.BING_NEWS.value:
+        return None  # type: ignore
     else:
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
 
@@ -109,6 +111,8 @@ def get_oldest_publishing_date() -> datetime:
     for aggregator in NewsAggregatorsEnum:
         aggregator_id = aggregator.value
         agg = fetch_aggregator(aggregator_id)
+        if not agg:
+            continue
         # this is a negative days timedelta timedelta(days=-<days>) so we will take the min to get the oldest
         supported_historical_articles_days_ago_start.append(agg.historical_articles_days_ago_start)
     oldest_publishing_date: datetime = datetime.now(timezone.utc) + min(
