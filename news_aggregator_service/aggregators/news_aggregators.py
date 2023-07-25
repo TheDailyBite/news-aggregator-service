@@ -81,7 +81,6 @@ class AggregatorInterface(ABC):
     ) -> tuple[list[RawArticle], datetime, datetime]:
         pass
 
-    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
     def aggregate_candidates_for_topic(
         self,
         topic_id: str,
@@ -353,6 +352,7 @@ class BingAggregator(AggregatorInterface):
             article_idx += 1
         return aggregated_articles, min_start_time, max_end_time
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
     def get_candidates_for_topic(
         self,
         topic_id: str,
@@ -612,6 +612,7 @@ class NewsApiOrgAggregator(AggregatorInterface):
             article_idx += 1
         return aggregated_articles, min_start_time, max_end_time
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
     def get_candidates_for_topic(
         self,
         topic_id: str,
@@ -891,6 +892,7 @@ class TheNewsApiComAggregator(AggregatorInterface):
             article_idx += 1
         return aggregated_articles, min_start_time, max_end_time
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
     def get_candidates_for_topic(
         self,
         topic_id: str,
