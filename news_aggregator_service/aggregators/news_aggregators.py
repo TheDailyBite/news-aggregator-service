@@ -31,6 +31,7 @@ from news_aggregator_data_access_layer.utils.s3 import (
     dt_to_lexicographic_date_dash_s3_prefix,
     dt_to_lexicographic_date_s3_prefix,
 )
+from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 from news_aggregator_service.aggregators.models import bing_news, news_api_org, the_news_api_com
 from news_aggregator_service.aggregators.models.aggregations import AggregationResults
@@ -80,6 +81,7 @@ class AggregatorInterface(ABC):
     ) -> tuple[list[RawArticle], datetime, datetime]:
         pass
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
     def aggregate_candidates_for_topic(
         self,
         topic_id: str,

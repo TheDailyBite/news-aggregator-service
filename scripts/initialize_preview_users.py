@@ -16,6 +16,8 @@ def initialize_preview_users() -> None:
         data = load_data()
         current_users = [u for u in PreviewUsers.scan()]
         print(f"Deleting {len(current_users)} current preview users to make the process easy")
+        unique_users = {item["user_id"] for item in data}
+        assert len(unique_users) == len(data), "User IDs must be unique"
         for user in current_users:
             user.delete()
         time.sleep(2)
