@@ -321,10 +321,6 @@ class BingAggregator(AggregatorInterface):
                     f"Article with url: {article.url} has published date {standardized_published_dt} which is outside the requested timeframe {start_time} - {end_time}, skipping..."
                 )
                 continue
-            if standardized_published_dt < min_start_time:
-                min_start_time = standardized_published_dt
-            if standardized_published_dt > max_end_time:
-                max_end_time = standardized_published_dt
             article_id = self.generate_article_id(article_idx)
             logger.info(f"Generated article id {article_id} for article with url: {article.url}")
             raw_article = RawArticle(
@@ -571,10 +567,6 @@ class NewsApiOrgAggregator(AggregatorInterface):
                 )
                 # TODO - emit metric
                 continue
-            if standardized_published_dt < min_start_time:
-                min_start_time = standardized_published_dt
-            if standardized_published_dt > max_end_time:
-                max_end_time = standardized_published_dt
             article_id = self.generate_article_id(article_idx)
             logger.info(f"Generated article id {article_id} for article with url: {article.url}")
             raw_article = RawArticle(
@@ -608,6 +600,10 @@ class NewsApiOrgAggregator(AggregatorInterface):
                 )
                 # TODO - emit metric
                 continue
+            if standardized_published_dt < min_start_time:
+                min_start_time = standardized_published_dt
+            if standardized_published_dt > max_end_time:
+                max_end_time = standardized_published_dt
             aggregated_articles.append(raw_article)
             article_idx += 1
         return aggregated_articles, min_start_time, max_end_time
@@ -849,10 +845,6 @@ class TheNewsApiComAggregator(AggregatorInterface):
                 )
                 # TODO - emit metric
                 continue
-            if standardized_published_dt < min_start_time:
-                min_start_time = standardized_published_dt
-            if standardized_published_dt > max_end_time:
-                max_end_time = standardized_published_dt
             article_id = self.generate_article_id(article_idx)
             logger.info(f"Generated article id {article_id} for article with url: {article.url}")
             raw_article = RawArticle(
@@ -888,6 +880,10 @@ class TheNewsApiComAggregator(AggregatorInterface):
                 )
                 # TODO - emit metric
                 continue
+            if standardized_published_dt < min_start_time:
+                min_start_time = standardized_published_dt
+            if standardized_published_dt > max_end_time:
+                max_end_time = standardized_published_dt
             aggregated_articles.append(raw_article)
             article_idx += 1
         return aggregated_articles, min_start_time, max_end_time

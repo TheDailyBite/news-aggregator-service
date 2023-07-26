@@ -56,29 +56,39 @@ def fetch_aggregator(aggregator_id: str) -> AggregatorInterface:
 def update_news_topic_last_aggregation_dts(
     news_topic: NewsTopics, aggregator_id: str, aggregation_data_end_dt: datetime
 ) -> None:
+    # NOTE - we have a sanity check to make sure we are not updating this field with an invalid value (we don't go so far back currently)
+    if aggregation_data_end_dt.year < 2000:
+        logger.error(
+            "Aggregation data end date is before 2000. Skipping update of NewsTopic aggregation attributes."
+        )
+        return
+    actions = [NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc))]
+    # we only update the <agg_id>_aggregation_last_end_time field if the aggregation data end date is greater than the current value or it isn't set (a new topic)
     if aggregator_id == NewsAggregatorsEnum.BING_NEWS.value:
-        news_topic.update(
-            actions=[
-                NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
-                NewsTopics.bing_aggregation_last_end_time.set(aggregation_data_end_dt),
-            ]
-        )
+        if (
+            not news_topic.bing_aggregation_last_end_time
+            or aggregation_data_end_dt > news_topic.bing_aggregation_last_end_time
+        ):
+            actions.append(NewsTopics.bing_aggregation_last_end_time.set(aggregation_data_end_dt))
     elif aggregator_id == NewsAggregatorsEnum.NEWS_API_ORG.value:
-        news_topic.update(
-            actions=[
-                NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
-                NewsTopics.news_api_org_aggregation_last_end_time.set(aggregation_data_end_dt),
-            ]
-        )
+        if (
+            not news_topic.news_api_org_aggregation_last_end_time
+            or aggregation_data_end_dt > news_topic.news_api_org_aggregation_last_end_time
+        ):
+            actions.append(
+                NewsTopics.news_api_org_aggregation_last_end_time.set(aggregation_data_end_dt)
+            )
     elif aggregator_id == NewsAggregatorsEnum.THE_NEWS_API_COM.value:
-        news_topic.update(
-            actions=[
-                NewsTopics.dt_last_aggregated.set(datetime.now(timezone.utc)),
-                NewsTopics.the_news_api_com_aggregation_last_end_time.set(aggregation_data_end_dt),
-            ]
-        )
+        if (
+            not news_topic.the_news_api_com_aggregation_last_end_time
+            or aggregation_data_end_dt > news_topic.the_news_api_com_aggregation_last_end_time
+        ):
+            actions.append(
+                NewsTopics.the_news_api_com_aggregation_last_end_time.set(aggregation_data_end_dt)
+            )
     else:
         raise ValueError(f"Aggregator {aggregator_id} is not supported")
+    news_topic.update(actions=actions)
 
 
 def get_aggregation_timeframe(

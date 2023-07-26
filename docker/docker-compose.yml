@@ -87,6 +87,5 @@ services:
       REGION_NAME: "us-east-1"      
       DYNAMODB_HOST: "http://dynamodb-local:8002"
       S3_ENDPOINT_URL: "http://s3-local:9000"
-      GENERATE_DUMMY_DATA: "false"      
       ARTICLES_PER_PAGE: "25"
       API_URL: "http://0.0.0.0:8000"
